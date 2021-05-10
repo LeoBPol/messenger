@@ -67,6 +67,20 @@ void *whoishere(){
 		}
 	}
 	printf("\n");
+
+	/*int nbPseudos;
+	char pseudo[100];
+
+	recv(dS, &nbPseudos, sizeof(int), 0);
+	printf("NbPseudo : %d\n", nbPseudos);
+	int pseudo_id = 0;
+	for(;pseudo_id<nbPseudos;pseudo_id++){
+		recv(dS, &pseudo, sizeof(100), 0);
+		if(strcmp(pseudo, "") != 0){
+			printf("[%s] ", pseudo);
+		}
+	}
+	printf("\n");*/
 }
 
 /* FONCTION D'ENVOIE DE MESSAGES */

@@ -121,20 +121,21 @@ void *transmission(void *args){
 
 			printf("Début whoishere\n");
 
+			char pseudos[100][100];
+
 			/* ENVOIE DES PSEUDOS AU CLIENT */
-			mes = send(users[i].dSC, users[i].pseudo, sizeof(100), 0);
-
-			printf("Milieu whoishere\n");
-
-			/* GESTION DES ERREURS DE L'ENVOIE DU MESSAGE */
-			if (mes<0){
-				perror("Erreur transmission tableau vers client\n");
-				pthread_exit(NULL);
+			int pseudo_id = nbClientDisconnected;
+			for (;pseudo_id < nbClient;++pseudo_id){
+				if(strcmp(users[pseudo_id].pseudo, pseudo)==0){
+					printf("%s\n", users[pseudo_id].pseudo);
+					
+				}
 			}
-			if (mes==0){
-				perror("Socket fermée tmotransmission tableau vers client\n");
-				pthread_exit(NULL);
-			}
+
+			send(users[i].dSC, users[pseudo_id].pseudo, sizeof(100*100), 0);
+
+			/* ENVOIE DES PSEUDOS AU CLIENT */
+			//mes = send(users[i].dSC, users[i].pseudo, sizeof(100), 0);
 
 			printf("Fin whoishere\n");
 
@@ -188,7 +189,7 @@ void *transmission(void *args){
 int main(int argc, char* argv[]){
 
 	/* INITIALISATION DU SÉMAPHORE  */
-	int sem = sem_init(&semaphore, 0, 2);
+	int sem = sem_init(&semaphore, 0, 10);
 	if(sem == -1){
 	    perror("Problème à l'intitialisation du sémaphore ");
 	}
@@ -246,8 +247,6 @@ int main(int argc, char* argv[]){
 		int sizeof_pseudo;
 		/* RECEVOIR LA TAILLE DU PSEUDO DU CLIENT */
 		recv(users[nbClient].dSC, &sizeof_pseudo, sizeof(int), 0);
-
-		printf("Taille du pseudo : %d\n", sizeof_pseudo);
 		
 		/* RECEVOIR LE PSEUDO DU CLIENT */
 		recv(users[nbClient].dSC, &pseudo_buffer, sizeof_pseudo, 0);
@@ -255,11 +254,11 @@ int main(int argc, char* argv[]){
 		strcpy(users[nbClient].pseudo, pseudo_buffer);
 		printf("Client %d connecté avec le pseudo : %s\n", nbClient+1, users[nbClient].pseudo);
 		
-		printf("NbClient : %d\n", nbClient);
-		for (int i = 0; i < nbClient+1; ++i){
+		/* AFFICHAGE DES CLIENTS CONNECTÉS  */
+		/*for (int i = 0; i < nbClient+1; ++i){
 			printf("%d : ", i);
 			printstruct(users[i]);
-		}
+		}*/
 
 		/* CREATION DES THREADS */
 		if( pthread_create(&users[nbClient].thread, NULL, transmission, (void *) (long) nbClient)){
