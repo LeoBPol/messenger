@@ -56,12 +56,18 @@ int getFile(){
 /* COMMANDE WHO */
 void *whoishere(){
 
+	int nbPseudos;
+
+	recv(dS, &nbPseudos, sizeof(int), 0);
+
+	printf("%d\n", nbPseudos);
+
 	char pseudos[100][100];
 
 	recv(dS, pseudos, sizeof(pseudos), 0);
-	int size = sizeof(pseudos)/100;
+	printf("pseudos recus");
 	int i = 0;
-	for(;i<size;i++){
+	for(;i<nbPseudos;i++){
 		if(strcmp(pseudos[i], "") != 0){
 			printf("[%s] ", pseudos[i]);
 		}

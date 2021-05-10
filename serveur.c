@@ -125,14 +125,18 @@ void *transmission(void *args){
 
 			/* ENVOIE DES PSEUDOS AU CLIENT */
 			int pseudo_id = nbClientDisconnected;
-			for (;pseudo_id < nbClient;++pseudo_id){
-				if(strcmp(users[pseudo_id].pseudo, pseudo)==0){
-					printf("%s\n", users[pseudo_id].pseudo);
-					
-				}
+			for (;pseudo_id < nbClient;pseudo_id++){
+				strcpy(pseudos[pseudo_id], users[pseudo_id].pseudo); 
+				printf("%s\n", pseudos[pseudo_id]);
 			}
 
-			send(users[i].dSC, users[pseudo_id].pseudo, sizeof(100*100), 0);
+			printf("Envoi des %d pseudos\n", pseudo_id);
+
+			send(users[i].dSC, &pseudo_id, sizeof(int), 0);
+
+			printf("Envoi de la liste des pseudos\n");
+
+			send(users[i].dSC, &pseudos, sizeof(100*100), 0);
 
 			/* ENVOIE DES PSEUDOS AU CLIENT */
 			//mes = send(users[i].dSC, users[i].pseudo, sizeof(100), 0);
