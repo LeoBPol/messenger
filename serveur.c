@@ -27,7 +27,7 @@ struct CLIENT{
 };
 
 /* CRÉATION DE L'UTILISATEUR */
-CLIENT* users[100];
+struct CLIENT users[100];
 
 /* TESTS */
 int nbClient = 0;
@@ -41,8 +41,8 @@ sem_t semaphore;
 /* DECLARATION DU SOCKET D'ECOUTE */
 int dSE;
 
-void printstruct(struct CLIENT *c){
-	printf("%d - %s\n", c->dSC, c->pseudo);
+void printstruct(struct CLIENT c){
+	printf("%d - %s\n", c.dSC, c.pseudo);
 }
 
 /* FONCTION DE TRANSMISSION D'UN MESSAGE D'UN CLIENT VERS L'AUTRE */
@@ -63,24 +63,18 @@ void *transmission(void *args){
 		
 		int clientID = -1;
 
-		printstruct(users[i]);
-
 		/* RECEPTION DU PSEUDO DU DESTINATAIRE */
-		recv(users[i]->dSC, &pseudo, sizeof(pseudo), 0);
+		recv(users[i].dSC, &pseudo, sizeof(pseudo), 0);
+		strtok(pseudo, "\n");
 		int pseudo_id = nbClientDisconnected;
 		for (;pseudo_id < nbClient;++pseudo_id){
-			printf("Pseudo (%d): %s\n", pseudo_id, users[pseudo_id]->pseudo);
-			if(strcmp(users[pseudo_id]->pseudo, pseudo)==0){
+			if(strcmp(users[pseudo_id].pseudo, pseudo)==0){
 				clientID = pseudo_id;
 			}
 		}
 
-		printf("Client ID : %d\n", clientID);
-
-		printf("Pseudo destinataire : %s\n", pseudo);
-
 		/* RECEPTION TAILLE DU MESSAGE DU CLIENT 1 */
-		int mes = recv(users[i]->dSC, &nb_octets, sizeof(int), 0); 
+		int mes = recv(users[i].dSC, &nb_octets, sizeof(int), 0); 
 
 		/* GESTION DES ERREURS DE LA RECEPTION DE LA TAILLE DU MESSAGE */
 		if (mes<0){
@@ -94,7 +88,7 @@ void *transmission(void *args){
 		/* BOUCLE POUR RECEVOIR L'INTEGRALITE DU MESSAGE */
 		int nb_recu = 0;
 		while(nb_recu<nb_octets){
-			mes = recv(users[i]->dSC, mot, nb_octets*sizeof(char), 0);
+			mes = recv(users[i].dSC, mot, nb_octets*sizeof(char), 0);
 			if (mes<0){
 				perror("Erreur reception mot C1vC2\n");
 				pthread_exit(NULL);
@@ -110,15 +104,15 @@ void *transmission(void *args){
 
 		/* SI LE MOT RECU EST "fin" */
 		if(strcmp(mot,"fin\n")==0){
-			close(users[i]->dSC);
-			printf("%s (%d) est déconnecté\n", users[pseudo_id]->pseudo, i+1);
+			close(users[i].dSC);
+			printf("%s (%d) est déconnecté\n", users[pseudo_id].pseudo, i+1);
 
 			int sem = sem_post(&semaphore);
 			if(sem == -1){
 				perror("A problem occured (sem wait)");
 			}
 			
-			pthread_cancel(users[pseudo_id]->thread);
+			pthread_cancel(users[pseudo_id].thread);
 			nbClientDisconnected++;
 		}
 
@@ -128,7 +122,7 @@ void *transmission(void *args){
 			printf("Début whoishere\n");
 
 			/* ENVOIE DES PSEUDOS AU CLIENT */
-			mes = send(users[i]->dSC, users[i]->pseudo, sizeof(100), 0);
+			mes = send(users[i].dSC, users[i].pseudo, sizeof(100), 0);
 
 			printf("Milieu whoishere\n");
 
@@ -144,22 +138,19 @@ void *transmission(void *args){
 
 			printf("Fin whoishere\n");
 
-			//send(users[i]->dSC, users[i]->pseudo, sizeof(100), 0);
+			//send(users[i].dSC, users[i].pseudo, sizeof(100), 0);
 			
 		} else if(clientID != -1){
 
-			printf("transmission MESSAGE\n");
-
 			char pseudoToSend[100];
-			memcpy(pseudoToSend, users[nbClient]->pseudo, sizeof(pseudoToSend)); 
+			strcpy(pseudoToSend, users[i].pseudo); 
 
 			/* ENVOIE DU PSEUDO AU DESTINATAIRE */
-			send(users[clientID]->dSC, &pseudoToSend, sizeof(100), 0);
+			send(users[clientID].dSC, &users[i].pseudo, sizeof(100), 0);
 
-			printf("Pseudo envoyé : %s\n", pseudoToSend);
 
 			/* ENVOIE DE LA TAILLE DU MESSAGE A ENVOYER */
-			mes = send(users[clientID]->dSC, &nb_octets, sizeof(int), 0);
+			mes = send(users[clientID].dSC, &nb_octets, sizeof(int), 0);
 
 			/* GESTION DES ERREURS DE L'ENVOIE DE LA TAILLE DU MESSAGE */
 			if (mes<0){
@@ -172,7 +163,7 @@ void *transmission(void *args){
 			}
 
 			/* ENVOIE DU MESSAGE DU CLIENT 1 VERS LE CLIENT 2*/
-			mes = send(users[clientID]->dSC, mot, nb_octets, 0);
+			mes = send(users[clientID].dSC, mot, nb_octets, 0);
 
 
 			/* GESTION DES ERREURS DE L'ENVOIE DU MESSAGE */
@@ -187,23 +178,7 @@ void *transmission(void *args){
 		}
 		
 	}
-	/*int newclientID = nbClientDisconnected;
-	for (; newclientID < nbClient; newclientID++){
-		close(dSC[newclientID]);
-		printf("%s (%d) est déconnecté\n", pseudos[newclientID], newclientID+1);
-		printf("%d\n", nbClient);
 
-		int sem = sem_post(&semaphore);
-		if(sem == -1){
-			perror("A problem occured (sem wait)");
-		}
-		nbClient--;
-
-		if(i != newclientID){
-			pthread_cancel(threads[newclientID]);
-		}
-		nbClientDisconnected++;
-	}*/
 	printf("La discussion est terminée\n");
 	printf("En attente des clients\n");
 
@@ -251,9 +226,9 @@ int main(int argc, char* argv[]){
 		struct CLIENT user;
 	
 		/* CONNEXION AVEC UN CLIENT */
-		users[nbClient] = &user;
-		users[nbClient]->dSC = accept(dSE, (struct sockaddr*) &aC, &lg);
-		if (users[nbClient]->dSC<0){
+		users[nbClient] = user;
+		users[nbClient].dSC = accept(dSE, (struct sockaddr*) &aC, &lg);
+		if (users[nbClient].dSC<0){
 			perror("Erreur de connexion avec le client");
 			return -1;
 		}
@@ -265,19 +240,20 @@ int main(int argc, char* argv[]){
 		}
 
 		/* DEMANDER LE PSEUDO AU CLIENT */
-		send(users[nbClient]->dSC, "Entrez votre pseudo : ", sizeof("Entrez votre pseudo : "), 0);
+		send(users[nbClient].dSC, "Entrez votre pseudo : ", sizeof("Entrez votre pseudo : "), 0);
 
 		char pseudo_buffer[100];
 		int sizeof_pseudo;
 		/* RECEVOIR LA TAILLE DU PSEUDO DU CLIENT */
-		recv(users[nbClient]->dSC, &sizeof_pseudo, sizeof(int), 0);
+		recv(users[nbClient].dSC, &sizeof_pseudo, sizeof(int), 0);
 
 		printf("Taille du pseudo : %d\n", sizeof_pseudo);
 		
 		/* RECEVOIR LE PSEUDO DU CLIENT */
-		recv(users[nbClient]->dSC, &pseudo_buffer, sizeof_pseudo, 0);
-		memcpy(users[nbClient]->pseudo, pseudo_buffer, sizeof(users[nbClient]->pseudo));
-		printf("Client %d connecté avec le pseudo : %s\n", nbClient+1, users[nbClient]->pseudo);
+		recv(users[nbClient].dSC, &pseudo_buffer, sizeof_pseudo, 0);
+		//memcpy(users[nbClient].pseudo, pseudo_buffer, sizeof(users[nbClient].pseudo));
+		strcpy(users[nbClient].pseudo, pseudo_buffer);
+		printf("Client %d connecté avec le pseudo : %s\n", nbClient+1, users[nbClient].pseudo);
 		
 		printf("NbClient : %d\n", nbClient);
 		for (int i = 0; i < nbClient+1; ++i){
@@ -286,7 +262,7 @@ int main(int argc, char* argv[]){
 		}
 
 		/* CREATION DES THREADS */
-		if( pthread_create(&users[nbClient]->thread, NULL, transmission, (void *) (long) nbClient)){
+		if( pthread_create(&users[nbClient].thread, NULL, transmission, (void *) (long) nbClient)){
 			perror("Erreur à la création du thread de transmission entre le client 1 et le client 2 ");
 			return EXIT_FAILURE;
 		}

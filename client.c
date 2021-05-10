@@ -131,8 +131,6 @@ void *recoie(void* args){
 		/* RECEPTION DU PSEUDO DU CLIENT */
 		recv(dS, &pseudoOther, sizeof(pseudoOther), 0);
 
-		printf("Pseudo other : %s\n", pseudoOther);
-
 		/* RECEPTION DE LA TAILLE DU MESSAGE */
 		int mes = recv(dS, &nb_octets, sizeof(int), 0); 
 
