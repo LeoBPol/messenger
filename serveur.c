@@ -67,7 +67,6 @@ void *transmission(void *args){
 
 		/* RECEPTION DU PSEUDO DU DESTINATAIRE */
 		recv(users[i]->dSC, &pseudo, sizeof(pseudo), 0);
-		pseudo[strlen(pseudo)-1] = 0;
 		int pseudo_id = nbClientDisconnected;
 		for (;pseudo_id < nbClient;++pseudo_id){
 			if(strcmp(users[pseudo_id]->pseudo, pseudo)==0){
@@ -75,7 +74,7 @@ void *transmission(void *args){
 			}
 		}
 
-		printf("%s\n", pseudo);
+		printf("Pseudo destinataire : %s\n", pseudo);
 
 		/* RECEPTION TAILLE DU MESSAGE DU CLIENT 1 */
 		int mes = recv(users[i]->dSC, &nb_octets, sizeof(int), 0);
@@ -121,8 +120,12 @@ void *transmission(void *args){
 		/* SI LE MOT RECU EST "whoishere" */
 		if(strcmp(mot,"whoishere\n")==0){
 
+			printf("Début whoishere\n");
+
 			/* ENVOIE DES PSEUDOS AU CLIENT */
 			mes = send(users[i]->dSC, users[i]->pseudo, sizeof(100), 0);
+
+			printf("Milieu whoishere\n");
 
 			/* GESTION DES ERREURS DE L'ENVOIE DU MESSAGE */
 			if (mes<0){
@@ -134,7 +137,9 @@ void *transmission(void *args){
 				pthread_exit(NULL);
 			}
 
-			send(users[i]->dSC, users[i]->pseudo, sizeof(100), 0);
+			printf("Fin whoishere\n");
+
+			//send(users[i]->dSC, users[i]->pseudo, sizeof(100), 0);
 			
 		} else if(clientID != -1){
 			/* ENVOIE DU PSEUDO AU DESTINATAIRE */
@@ -249,10 +254,20 @@ int main(int argc, char* argv[]){
 		/* DEMANDER LE PSEUDO AU CLIENT */
 		send(users[nbClient]->dSC, "Entrez votre pseudo : ", sizeof("Entrez votre pseudo : "), 0);
 
+		char pseudo_buffer[100];
+		int sizeof_pseudo;
+		/* RECEVOIR LA TAILLE DU PSEUDO DU CLIENT */
+		recv(users[nbClient]->dSC, &sizeof_pseudo, sizeof(int), 0);
 
+		printf("Taille du pseudo : %d\n", sizeof_pseudo);
+		
 		/* RECEVOIR LE PSEUDO DU CLIENT */
-		recv(users[nbClient]->dSC, users[nbClient]->pseudo, sizeof(100),0);
+		recv(users[nbClient]->dSC, &pseudo_buffer, sizeof_pseudo, 0);
+		//memcpy(pseudo_buffer, users[nbClient]->pseudo, sizeof(pseudo_buffer));
+		memcpy(users[nbClient]->pseudo, pseudo_buffer, sizeof(users[nbClient]->pseudo));
+		//users[nbClient]->pseudo = *pseudo_buffer;
 		printf("Client %d connecté avec le pseudo : %s\n", nbClient+1, users[nbClient]->pseudo);
+		printf("Client %d connecté avec le pseudo : %s\n", nbClient+1, pseudo_buffer);
 
 		/* CREATION DES THREADS */
 		if( pthread_create(&users[nbClient]->thread, NULL, transmission, (void *) (long) nbClient)){

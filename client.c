@@ -230,6 +230,12 @@ int main(int argc, char* argv[]){
 	fgets(pseudo,100,stdin);
 	strtok(pseudo, "\n");
 
+	printf("Pseudo à envoyer : %s\n", pseudo);
+
+	int taille_pseudo = sizeof(pseudo);
+	/* ENVOIE DE LA TAILLE DU PSEUDO AU CLIENT */
+	send(dS, &taille_pseudo, sizeof(int), 0);
+
 	/* ENVOIE DU PSEUDO AU SERVEUR */
 	send(dS, pseudo, sizeof(pseudo), 0);
 
