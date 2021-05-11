@@ -74,19 +74,6 @@ void *whoishere(){
 	}
 	printf("\n");
 
-	/*int nbPseudos;
-	char pseudo[100];
-
-	recv(dS, &nbPseudos, sizeof(int), 0);
-	printf("NbPseudo : %d\n", nbPseudos);
-	int pseudo_id = 0;
-	for(;pseudo_id<nbPseudos;pseudo_id++){
-		recv(dS, &pseudo, sizeof(100), 0);
-		if(strcmp(pseudo, "") != 0){
-			printf("[%s] ", pseudo);
-		}
-	}
-	printf("\n");*/
 }
 
 /* FONCTION D'ENVOIE DE MESSAGES */
@@ -102,22 +89,9 @@ void *envoie(void *args){
 		/* ENVOIE DU PSEUDO DU DESTINATAIRE */
 		send(dS, &pseudo_other, sizeof(pseudo_other), 0); 
 
-		/* CALCUL ET ENVOIE DE LA TAILLE DU MESSAGE A ENVOYER */
-		int taille = (strlen(mot)+1)*sizeof(char);
-		int mes = send(dS, &taille, sizeof(int), 0); 
-
-		/* GESTION DES ERREURS DE L'ENVOIE DE LA TAILLE DU MESSAGE */
-		if (mes<0){
-			perror("Erreur envoie taille\n");
-			pthread_exit(NULL);
-		}
-		if (mes==0){
-			perror("Socket fermée envoie taille\n");
-			pthread_exit(NULL);
-		}
 
 		/* ENVOIE DU MESSAGE */
-		mes = send(dS, mot, strlen(mot)+1, 0);
+		int mes = send(dS, mot, sizeof(mot), 0);
 
 		/* GESTION DES ERREURS DE L'ENVOIE DU MESSAGE */
 		if (mes<0){
@@ -128,10 +102,6 @@ void *envoie(void *args){
 			perror("Socket fermée envoie mot\n");
 			pthread_exit(NULL);
 		}
-
-		/*if(strcmp(mot,"whoishere\n")==0){
-			whoishere();
-		}*/
 	}
 	pthread_exit(NULL);
 }
@@ -151,29 +121,12 @@ void *recoie(void* args){
 		char char_nb_octets[10];
 
 		/* RECEPTION DU PSEUDO DU CLIENT */
-		recv(dS, &pseudoOther, sizeof(char)*100, 0);
+		recv(dS, &pseudoOther, sizeof(pseudoOther), 0);
 
-		printf("Pseudo reçu : %s\n", pseudoOther);
-
-		/* RECEPTION DE LA TAILLE DU MESSAGE */
-		int mes = recv(dS, &char_nb_octets, sizeof(char)*10, 0); 
-		nb_octets = atoi(char_nb_octets);
-
-		printf("Taille reçu : %d\n", nb_octets);
-
-		/* GESTION DES ERREURS DE LA RECEPTION DE LA TAILLE DU MESSAGE */
-		if (mes<0){
-			perror("Erreur reception taille\n");
-			pthread_exit(NULL);
-		}
-		if (mes==0){
-			pthread_exit(NULL);
-		}
-
-		printf("Taille du message reçu : %d\n", nb_octets);
+		//printf("Pseudo reçu : %s\n", pseudoOther);
 
 		/* RECEPTION DU MESSAGE */
-		mes = recv(dS, &mot, nb_octets, 0); 
+		int mes = recv(dS, &mot, sizeof(mot), 0); 
 
 		/* GESTION DES ERREURS DE LA RECEPTION DU MESSAGE */
 		if (mes<0){
@@ -185,37 +138,14 @@ void *recoie(void* args){
 			pthread_exit(NULL);
 		}
 
-		/* GESTION DES ERREURS DE LA BOUCLE POUR RECEVOIR L'INTEGRALITE DU MESSAGE */
-		/*int nb_recu = 0;
-		while(nb_recu<nb_octets){
-
-			/* RECEPTION DU MESSAGE */
-			//mes = recv(dS, mot, nb_octets*sizeof(char), 0); 
-
-			/* GESTION DES ERREURS DE LA RECEPTION DU MESSAGE */
-			/*if (mes<0){
-				perror("Erreur reception mot\n");
-				pthread_exit(NULL);
-			}
-			if (mes==0){
-				perror("Socket fermée reception mot\n");
-				pthread_exit(NULL);
-			}
-			nb_recu+=mes;
-		}*/
-
 		if(strcmp(mot,"file\n")==0){
 			printf("test");
 		}
 
 		/* AFFICHAGE DU MESSAGE RECU */
-		/*printf( "%c[2K", ASCII_ESC );
-		printf( "%c[A", ASCII_ESC );
-		printf( "%c[2K", ASCII_ESC );
-		printf( "%c[A", ASCII_ESC );
-		puts("\033[1m");*/
+		puts("\033[1m");
 		printf("%s : %s", pseudoOther, mot);
-		//puts("\033[0m");
+		puts("\033[0m");
 
 
 		if(strcmp(mot,"fin\n")==0){

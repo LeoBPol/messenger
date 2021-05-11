@@ -75,20 +75,8 @@ void *transmission(void *args){
 			}
 		}
 
-		/* RECEPTION TAILLE DU MESSAGE DU CLIENT 1 */
-		int mes = recv(users[i].dSC, &nb_octets, sizeof(int), 0); 
-
-		/* GESTION DES ERREURS DE LA RECEPTION DE LA TAILLE DU MESSAGE */
-		if (mes<0){
-			perror("Erreur reception taille C1vC2\n");
-			pthread_exit(NULL);
-		}
-		if (mes==0){
-			pthread_exit(NULL);
-		}
-
 		/* RECEPTION DU MESSAGE DU CLIENT 1 */
-		mes = recv(users[i].dSC, mot, nb_octets, 0);
+		int mes = recv(users[i].dSC, mot, sizeof(mot), 0);
 		if (mes<0){
 			perror("Erreur reception mot C1vC2\n");
 			pthread_exit(NULL);
@@ -134,19 +122,20 @@ void *transmission(void *args){
 
 			send(users[i].dSC, "serveur", sizeof("serveur"), 0);
 
-			char pseudos[100*100] = "";
+			char pseudos[65000] = "[";
 
 			/* ENVOIE DES PSEUDOS AU CLIENT */
 			int pseudo_id = nbClientDisconnected;
 			for (;pseudo_id < nbClient;pseudo_id++){
-				strcat(pseudos, strcat(users[pseudo_id].pseudo, " ")); 
+				char temp_pseudo[100] = "";
+				strcpy(temp_pseudo, users[pseudo_id].pseudo);
+				strcat(pseudos, strcat(temp_pseudo, "] [")); 
 			}
+			pseudos[strlen(pseudos) - 1] = ' ';
 
-      		long nbOctets = sizeof(pseudos);
+			send(users[i].dSC, &pseudos, sizeof(pseudos), 0);
 
-			send(users[i].dSC, (void *)nbOctets, sizeof(long), 0);
-
-			send(users[i].dSC, &pseudos, nbOctets, 0);
+			clientID = -1;
 			
 		} else if(clientID != -1){
 
@@ -161,27 +150,10 @@ void *transmission(void *args){
 			printf("Envoi du pseudo vers dSC : %d\n", users[clientID].dSC);
 
 			/* ENVOIE DU PSEUDO AU DESTINATAIRE */
-			send(dSC, &users[i].pseudo, sizeof(100), 0);
-
-			printf("Envoi de la taille : %s\n", char_nb_octet);
-
-			/* ENVOIE DE LA TAILLE DU MESSAGE A ENVOYER */
-			mes = send(dSC, &char_nb_octet, sizeof(char)*10, 0);
-			nb_octets = atoi(char_nb_octet);
-
-			/* GESTION DES ERREURS DE L'ENVOIE DE LA TAILLE DU MESSAGE */
-			if (mes<0){
-				perror("Erreur transmission taille C1vC2\n");
-				pthread_exit(NULL);
-			}
-			if (mes==0){
-				perror("Socket fermée recption taille C1vC2\n");
-				pthread_exit(NULL);
-			}
+			send(dSC, &users[i].pseudo, sizeof(users[i].pseudo), 0);
 
 			/* ENVOIE DU MESSAGE DU CLIENT 1 VERS LE CLIENT 2*/
-			mes = send(dSC, mot, nb_octets, 0);
-
+			int mes = send(dSC, mot, sizeof(mot), 0);
 
 			/* GESTION DES ERREURS DE L'ENVOIE DU MESSAGE */
 			if (mes<0){
