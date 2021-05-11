@@ -100,9 +100,6 @@ void *transmission(void *args){
 			nb_recu+=mes;
 		}*/
 
-		printf("Mot reçu : %s\n", mot);
-		printf("Client ID : %d\n", clientID);
-
 		/* SI LE MOT RECU EST "fin" */
 		if(strcmp(mot,"fin\n")==0){
 			close(users[i].dSC);
@@ -137,7 +134,35 @@ void *transmission(void *args){
 
 			clientID = -1;
 			
-		} else if(clientID != -1){
+		} /* SI LE PSEUDO RECU EST "all" (ON ENVOI LE MESSAGE À TOUT LES CLIENTS) */
+		else if(strcmp(pseudo,"all")==0){
+			char char_nb_octet[10];
+			sprintf(char_nb_octet, "%d", nb_octets);
+			char pseudoToSend[100];
+			
+			int pseudo_id = nbClientDisconnected;
+			for (;pseudo_id < nbClient;pseudo_id++){
+				strcpy(pseudoToSend, users[i].pseudo); 
+				int dSC = users[pseudo_id].dSC;
+
+				/* ENVOIE DU PSEUDO AU DESTINATAIRE */
+				send(dSC, &users[i].pseudo, sizeof(users[i].pseudo), 0);
+
+				/* ENVOIE DU MESSAGE DU CLIENT 1 VERS LE CLIENT 2*/
+				int mes = send(dSC, mot, sizeof(mot), 0);
+
+				/* GESTION DES ERREURS DE L'ENVOIE DU MESSAGE */
+				if (mes<0){
+					perror("Erreur transmission mot C1vC2\n");
+					pthread_exit(NULL);
+				}
+				if (mes==0){
+					perror("Socket fermée transmission mot C1vC2\n");
+					pthread_exit(NULL);
+				}
+			}
+		
+		}else if(clientID != -1){
 
 
 			char char_nb_octet[10];
