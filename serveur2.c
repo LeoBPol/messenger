@@ -162,7 +162,7 @@ void *transmission(void *args){
 				}
 			}
 		
-		}else if(clientID != -1){
+		} else if(clientID != -1){
 
 
 			char char_nb_octet[10];

@@ -143,8 +143,15 @@ void *recoie(void* args){
 		}
 
 		/* AFFICHAGE DU MESSAGE RECU */
+		printf( "%c[2K", ASCII_ESC );
+		printf( "%c[A", ASCII_ESC );
+		printf( "%c[2K", ASCII_ESC );
+		printf( "%c[A", ASCII_ESC );
 		puts("\033[1m");
-		printf("%s : %s", pseudoOther, mot);
+		if (strcmp(pseudoOther,"")!=0)
+		{
+			printf("%s : %s", pseudoOther, mot);
+		}
 		puts("\033[0m");
 
 

@@ -209,13 +209,17 @@ void *recoie(void* args){
 		}
 
 		/* AFFICHAGE DU MESSAGE RECU */
-		/*printf( "%c[2K", ASCII_ESC );
+		printf( "%c[2K", ASCII_ESC );
 		printf( "%c[A", ASCII_ESC );
 		printf( "%c[2K", ASCII_ESC );
 		printf( "%c[A", ASCII_ESC );
-		puts("\033[1m");*/
-		printf("%s : %s", pseudoOther, mot);
-		//puts("\033[0m");
+		puts("\033[1m");
+		printf("Taille du pseudo : %d\n", strlen(pseudoOther));
+		if (strcmp(pseudoOther,"")!=0)
+		{
+			printf("%s : %s", pseudoOther, mot);
+		}
+		puts("\033[0m");
 
 
 		if(strcmp(mot,"fin\n")==0){
@@ -227,7 +231,6 @@ void *recoie(void* args){
 			else{
 				printf("Ecrivez votre message à %s: \n",last_pseudo);
 			}
-			
 		}
 	}
 	pthread_exit(NULL);
