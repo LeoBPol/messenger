@@ -24,10 +24,23 @@ struct CLIENT{
     int dSC;
     char pseudo[100];
     pthread_t thread;
+    int salon;
+};
+
+/* STRUCTURE SALON */ 
+typedef struct SALON SALON;
+struct SALON {
+    char nom_salon[100];
+    char description[200];
+    int nb_present;
+    int capacite;
 };
 
 /* CRÉATION DE L'UTILISATEUR */
 struct CLIENT users[100];
+
+/* CRÉATION DU SALON */
+struct SALON salons[10];
 
 /* TESTS */
 int nbClient = 0;
@@ -45,12 +58,42 @@ void printstruct(struct CLIENT c){
 	printf("%d - %s\n", c.dSC, c.pseudo);
 }
 
+/*
+void *nouveau_salon(int i){
+
+    struct SALON salon;
+    
+    reception(tabClient[i].socketMes, newSalon.name);
+    reception(tabClient[i].socketMes, newSalon.desc);
+    newSalon.nbrClientPres = 0;
+    int capa = 0;
+    int rec = recv(tabClient[i].socketMes, &capa, sizeof(int), 0);
+    if (rec == -1){
+        perror("Erreur 1ere reception\n");
+        exit(0);
+    }
+    if (rec == 0){
+        perror("Socket fermée\n");
+        exit(0);
+    }
+    if (capa < 0 || capa > 200){
+        capa = 10; //je choisi une capacité maximal par défault
+    }
+    newSalon.capacityMax = capa;
+
+    tabSalon[nbrSalon] = newSalon;
+    nbrSalon = nbrSalon + 1; 
+} */
+
 /* FONCTION DE TRANSMISSION D'UN MESSAGE D'UN CLIENT VERS L'AUTRE */
 void *transmission(void *args){
 
 	/* NUMÉRO DU CLIENT QUI ENVOIE LE MESSAGE */
 	int i = (long) args;
+
+	char message_recu[200];
 	char pseudo[100];
+
 
 	printf("Thread de transmission pour le client %d\n", i);
 
@@ -59,24 +102,15 @@ void *transmission(void *args){
 	int nb_octets;
 
 	/* BOUCLE TANT QUE LES MSG SONT DIFFÉRENTS DE "fin" */
+
 	while(1){
-		
+
 		int clientID = -1;
 
-		printstruct(users[i]);
-
 		/* RECEPTION DU PSEUDO DU DESTINATAIRE */
-		recv(users[i].dSC, &pseudo, sizeof(pseudo), 0);
-		strtok(pseudo, "\n");
-		int pseudo_id = nbClientDisconnected;
-		for (;pseudo_id < nbClient;++pseudo_id){
-			if(strcmp(users[pseudo_id].pseudo, pseudo)==0){
-				clientID = pseudo_id;
-			}
-		}
+		int mes = recv(users[i].dSC, &message_recu, sizeof(message_recu), 0);
 
-		/* RECEPTION DU MESSAGE DU CLIENT 1 */
-		int mes = recv(users[i].dSC, mot, sizeof(mot), 0);
+		while(strcmp(mes," ") == 1){
 		if (mes<0){
 			perror("Erreur reception mot C1vC2\n");
 			pthread_exit(NULL);
@@ -85,21 +119,22 @@ void *transmission(void *args){
 			perror("Socket fermée reception mot C1vC2\n");
 			pthread_exit(NULL);
 		}
-		/* BOUCLE POUR RECEVOIR L'INTEGRALITE DU MESSAGE */
-		/*int nb_recu = 0;
-		while(nb_recu<nb_octets){
-			mes = recv(users[i].dSC, mot, nb_octets*sizeof(char), 0);
-			if (mes<0){
-				perror("Erreur reception mot C1vC2\n");
-				pthread_exit(NULL);
+		printf("message : %s", message_recu);
+		strtok(message_recu, "\n");
+		char *p = strtok(message_recu, " ");
+		
+		while(p != NULL)
+		{
+		    printf("'%s'\n", p);
+		    p = strtok(NULL, " ");
+		}
+		
+		int pseudo_id = nbClientDisconnected;
+		for (;pseudo_id < nbClient;++pseudo_id){
+			if(strcmp(users[pseudo_id].pseudo, pseudo)==0){
+				clientID = pseudo_id;
 			}
-			if (mes==0){
-				perror("Socket fermée reception mot C1vC2\n");
-				pthread_exit(NULL);
-			}
-			nb_recu+=mes;
-		}*/
-
+		}
 		/* SI LE MOT RECU EST "fin" */
 		if(strcmp(mot,"fin\n")==0){
 			close(users[i].dSC);
@@ -194,7 +229,8 @@ void *transmission(void *args){
 		}
 		
 	}
-
+	}
+	
 	printf("La discussion est terminée\n");
 	printf("En attente des clients\n");
 

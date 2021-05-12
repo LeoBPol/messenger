@@ -30,7 +30,7 @@ void saisie_destinataire(char *pseudo){
 
 /* FONCTION DE SAISIE DE MESSAGES A ENVOYER */
 void saisie(char *mot){
-	printf("\nEcrivez votre message à %s: \n",last_pseudo);
+	printf("\nEcrivez votre message\n");
 	fgets(mot,TMAX,stdin); 
 }
 
@@ -79,17 +79,10 @@ void *whoishere(){
 /* FONCTION D'ENVOIE DE MESSAGES */
 void *envoie(void *args){
 	char mot[TMAX];
-	char pseudo_other[100];
+
 	while(strcmp(mot,"fin\n")!=0){
-		etat_message = 1;
-		saisie_destinataire(pseudo_other);
-		etat_message = 0;
 		saisie(mot);
-
-		/* ENVOIE DU PSEUDO DU DESTINATAIRE */
-		send(dS, &pseudo_other, sizeof(pseudo_other), 0); 
-
-
+		printf("test");
 		/* ENVOIE DU MESSAGE */
 		int mes = send(dS, mot, sizeof(mot), 0);
 
@@ -162,7 +155,7 @@ void *recoie(void* args){
 				printf("Saisissez le pseudo du destinataire: \n");
 			}
 			else{
-				printf("Ecrivez votre message à %s: \n",last_pseudo);
+				printf("Ecrivez votre message \n");
 			}
 			
 		}
