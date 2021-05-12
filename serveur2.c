@@ -24,10 +24,23 @@ struct CLIENT{
     int dSC;
     char pseudo[100];
     pthread_t thread;
+    int salon;
+};
+
+/* STRUCTURE SALON */ 
+typedef struct SALON SALON;
+struct SALON {
+    char nom_salon[100];
+    char description[200];
+    int nb_present;
+    int capacite;
 };
 
 /* CRÉATION DE L'UTILISATEUR */
 struct CLIENT users[100];
+
+/* CRÉATION DU SALON */
+struct SALON salons[10];
 
 /* TESTS */
 int nbClient = 0;
@@ -43,6 +56,33 @@ int dSE;
 
 void printstruct(struct CLIENT c){
 	printf("%d - %s\n", c.dSC, c.pseudo);
+}
+
+
+void *nouveau_salon(int i){
+
+    struct SALON salon;
+    /*
+    reception(tabClient[i].socketMes, newSalon.name);
+    reception(tabClient[i].socketMes, newSalon.desc);
+    newSalon.nbrClientPres = 0;
+    int capa = 0;
+    int rec = recv(tabClient[i].socketMes, &capa, sizeof(int), 0);
+    if (rec == -1){
+        perror("Erreur 1ere reception\n");
+        exit(0);
+    }
+    if (rec == 0){
+        perror("Socket fermée\n");
+        exit(0);
+    }
+    if (capa < 0 || capa > 200){
+        capa = 10; //je choisi une capacité maximal par défault
+    }
+    newSalon.capacityMax = capa;
+
+    tabSalon[nbrSalon] = newSalon;
+    nbrSalon = nbrSalon + 1; */
 }
 
 /* FONCTION DE TRANSMISSION D'UN MESSAGE D'UN CLIENT VERS L'AUTRE */
