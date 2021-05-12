@@ -27,7 +27,8 @@ struct CLIENT{
 };
 
 /* CRÉATION DE L'UTILISATEUR */
-struct CLIENT users[100];
+//struct CLIENT users[100];
+struct CLIENT* users;
 
 /* TESTS */
 int nbClient = 0;
@@ -64,6 +65,7 @@ void *transmission(void *args){
 		int clientID = -1;
 
 		printstruct(users[i]);
+		printf("Taille d'un user : %ld\n", sizeof(users[i]));
 
 		/* RECEPTION DU PSEUDO DU DESTINATAIRE */
 		recv(users[i].dSC, &pseudo, sizeof(pseudo), 0);
@@ -236,10 +238,16 @@ int main(int argc, char* argv[]){
 	struct sockaddr_in aC;
 	socklen_t lg = sizeof(struct sockaddr_in);
 
-	printf("En attente des clients\n");
+	users = (CLIENT *) malloc(sizeof(CLIENT)*2);
+
+ 	printf("En attente des clients\n");
 
 	while(1){
 		struct CLIENT user;
+
+		if(nbClient > 1){
+			users = realloc(users, sizeof(CLIENT)*(nbClient+1));
+		}
 	
 		/* CONNEXION AVEC UN CLIENT */
 		users[nbClient] = user;
