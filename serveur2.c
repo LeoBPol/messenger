@@ -13,11 +13,6 @@
 #define ALLOC 2
 #define NB_CLIENT_MAX
 
-/* TABLEAUX CONTENANT LES SOCKETS, LES PSEUDOS DES CLIENTS ET LES THREADS */
-/*int dSC[100];
-char pseudos[100][100];
-pthread_t threads[100];*/
-
 /* STRUCTURE UTILISATEUR */ 
 typedef struct CLIENT CLIENT;
 struct CLIENT{
@@ -27,12 +22,10 @@ struct CLIENT{
 };
 
 /* CRÉATION DE L'UTILISATEUR */
-//struct CLIENT users[100];
 struct CLIENT* users;
 
-/* TESTS */
+/* COMPTEUR CLIENT */
 int nb_client = 0;
-int nb_clientDisconnected = 0;
 
 /* DECLARATION DU SEMAPHORE */
 sem_t semaphore;
@@ -53,46 +46,19 @@ void supprimer_client(int i){
 	pthread_t thread_to_stop;
 
 	close(users[i].dSC);
-	printf("%s (%d) est déconnecté\n", users[i].pseudo, i);
-
-	printf("\n");
+	printf("%s (client %d) est déconnecté\n", users[i].pseudo, i+1);
 
 	memcpy(&thread_to_stop, &users[i].thread, sizeof(users[i].thread));
-
-	/*for (;client_id < nb_client;++client_id){
-		if(users[client_id].dSC == users[i].dSC){
-			found = 1;
-			users[client_id] = 
-		} else if (found == 1){
-			users[client_id] = users[client_id + 1];
-		}
-	}*/
-	printf("Avant la boucle\n");
-	for (int i = 0; i < nb_client+3; ++i){
-		printf("%d : ", i);
-		printstruct(users[i]);
-	}
-	printf("---------------------------\n");
-
 
 	int client_to_move_id = 0;
 	for(;client_id < nb_client; client_id++){
 		if(users[client_id].dSC == users[i].dSC){
 			client_to_move_id = client_id;
-			printf("%d\n", client_to_move_id);
        	}
 	}
 	for (; client_to_move_id <  nb_client; client_to_move_id++){
-		//printf("%s\n", users[client_to_move_id].pseudo);
 		memmove(&users[client_to_move_id], &users[client_to_move_id + 1], sizeof(users[client_to_move_id + 1]));
-		/*if (users[client_to_move_id + 1].dSC = 896){
-			users[client_to_move_id].dSC = 0;
-		} else {
-            users[client_to_move_id] = users[client_to_move_id + 1];
-        }*/
     }
-
-	//printf("%s (%d) est déconnecté\n", users[i].pseudo, i);
 
 	int sem = sem_post(&semaphore);
 	if(sem == -1){
@@ -101,17 +67,8 @@ void supprimer_client(int i){
 
 	nb_client--;
 
-	printf("nb_client : %d\n", nb_client);
-
-	users = realloc(users, sizeof(CLIENT)*(nb_client));
+	users = realloc(users, sizeof(CLIENT)*(nb_client+1));
 	
-	printf("Après la boucle\n");
-	for (int i = 0; i < nb_client; ++i){
-		printf("%d : ", i);
-		printstruct(users[i]);
-	}
-	printf("---------------------------\n");
-
 	pthread_cancel(thread_to_stop);
 }
 
@@ -138,7 +95,7 @@ void *transmission(void *args){
 		/* RECEPTION DU PSEUDO DU DESTINATAIRE */
 		recv(users[i].dSC, &pseudo, sizeof(pseudo), 0);
 		strtok(pseudo, "\n");
-		int pseudo_id = nb_clientDisconnected;
+		int pseudo_id = 0;
 		for (;pseudo_id < nb_client;++pseudo_id){
 			if(strcmp(users[pseudo_id].pseudo, pseudo)==0){
 				clientID = pseudo_id;
@@ -156,20 +113,6 @@ void *transmission(void *args){
 			supprimer_client(i);
 			pthread_exit(NULL);
 		}
-		/* BOUCLE POUR RECEVOIR L'INTEGRALITE DU MESSAGE */
-		/*int nb_recu = 0;
-		while(nb_recu<nb_octets){
-			mes = recv(users[i].dSC, mot, nb_octets*sizeof(char), 0);
-			if (mes<0){
-				perror("Erreur reception mot C1vC2\n");
-				pthread_exit(NULL);
-			}
-			if (mes==0){
-				perror("Socket fermée reception mot C1vC2\n");
-				pthread_exit(NULL);
-			}
-			nb_recu+=mes;
-		}*/
 
 		/* SI LE MOT RECU EST "fin" */
 		if(strcmp(mot,"fin\n")==0){
@@ -185,7 +128,7 @@ void *transmission(void *args){
 			char pseudos[65000] = "[";
 
 			/* ENVOIE DES PSEUDOS AU CLIENT */
-			int pseudo_id = nb_clientDisconnected;
+			int pseudo_id = 0;
 			for (;pseudo_id < nb_client;pseudo_id++){
 				char temp_pseudo[100] = "";
 				strcpy(temp_pseudo, users[pseudo_id].pseudo);
@@ -203,7 +146,7 @@ void *transmission(void *args){
 			sprintf(char_nb_octet, "%d", nb_octets);
 			char pseudoToSend[100];
 			
-			int pseudo_id = nb_clientDisconnected;
+			int pseudo_id = 0;
 			for (;pseudo_id < nb_client;pseudo_id++){
 				strcpy(pseudoToSend, users[i].pseudo); 
 				int dSC = users[pseudo_id].dSC;
@@ -304,20 +247,17 @@ int main(int argc, char* argv[]){
  	printf("En attente des clients\n");
 
 	while(1){
-		struct CLIENT user;
 
-		if(nb_client > 1){
+		if (nb_client == 0){
+			users = (CLIENT *) malloc(sizeof(CLIENT)*2);
+		} else {
 			users = realloc(users, sizeof(CLIENT)*(nb_client+1));
 		}
-	
-		/* CONNEXION AVEC UN CLIENT */
-		users[nb_client] = user;
-		printstruct(users[nb_client]);
 
-		users[nb_client].dSC = accept(dSE, (struct sockaddr*) &aC, &lg);
-		while(users[nb_client].dSC == 896){
-			users[nb_client].dSC = accept(dSE, (struct sockaddr*) &aC, &lg);
-		}
+		/* CONNEXION AVEC UN CLIENT */
+		int dSC = accept(dSE, (struct sockaddr*) &aC, &lg);
+		users[nb_client].dSC = dSC;
+
 		if (users[nb_client].dSC<0){
 			perror("Erreur de connexion avec le client");
 			return -1;
@@ -334,12 +274,12 @@ int main(int argc, char* argv[]){
 
 		char pseudo_buffer[100];
 		int sizeof_pseudo;
+
 		/* RECEVOIR LA TAILLE DU PSEUDO DU CLIENT */
 		recv(users[nb_client].dSC, &sizeof_pseudo, sizeof(int), 0);
 		
 		/* RECEVOIR LE PSEUDO DU CLIENT */
 		recv(users[nb_client].dSC, &pseudo_buffer, sizeof_pseudo, 0);
-		//memcpy(users[nb_client].pseudo, pseudo_buffer, sizeof(users[nb_client].pseudo));
 		strcpy(users[nb_client].pseudo, pseudo_buffer);
 		printf("Client %d connecté avec le pseudo : %s\n", nb_client+1, users[nb_client].pseudo);
 		

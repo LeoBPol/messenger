@@ -138,10 +138,6 @@ void *recoie(void* args){
 			pthread_exit(NULL);
 		}
 
-		if(strcmp(mot,"file\n")==0){
-			printf("test");
-		}
-
 		/* AFFICHAGE DU MESSAGE RECU */
 		printf( "%c[2K", ASCII_ESC );
 		printf( "%c[A", ASCII_ESC );
