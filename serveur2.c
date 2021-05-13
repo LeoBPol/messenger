@@ -32,7 +32,6 @@ struct CLIENT* users;
 
 /* TESTS */
 int nb_client = 0;
-int nb_clientDisconnected = 0;
 
 /* DECLARATION DU SEMAPHORE */
 sem_t semaphore;
@@ -138,7 +137,7 @@ void *transmission(void *args){
 		/* RECEPTION DU PSEUDO DU DESTINATAIRE */
 		recv(users[i].dSC, &pseudo, sizeof(pseudo), 0);
 		strtok(pseudo, "\n");
-		int pseudo_id = nb_clientDisconnected;
+		int pseudo_id = 0;
 		for (;pseudo_id < nb_client;++pseudo_id){
 			if(strcmp(users[pseudo_id].pseudo, pseudo)==0){
 				clientID = pseudo_id;
@@ -185,7 +184,7 @@ void *transmission(void *args){
 			char pseudos[65000] = "[";
 
 			/* ENVOIE DES PSEUDOS AU CLIENT */
-			int pseudo_id = nb_clientDisconnected;
+			int pseudo_id = 0;
 			for (;pseudo_id < nb_client;pseudo_id++){
 				char temp_pseudo[100] = "";
 				strcpy(temp_pseudo, users[pseudo_id].pseudo);
@@ -203,7 +202,7 @@ void *transmission(void *args){
 			sprintf(char_nb_octet, "%d", nb_octets);
 			char pseudoToSend[100];
 			
-			int pseudo_id = nb_clientDisconnected;
+			int pseudo_id = 0;
 			for (;pseudo_id < nb_client;pseudo_id++){
 				strcpy(pseudoToSend, users[i].pseudo); 
 				int dSC = users[pseudo_id].dSC;
