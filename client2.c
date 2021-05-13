@@ -157,6 +157,7 @@ void *recoie(void* args){
 
 		if(strcmp(mot,"fin\n")==0){
 			fin = 1;
+			pthread_exit(NULL);
 		} else {
 			if(etat_message == 1){
 				printf("Saisissez le pseudo du destinataire: \n");
@@ -242,6 +243,7 @@ int main(int argc, char* argv[]){
 	}
 
 	pthread_cancel(threadS);
+	pthread_cancel(threadR);
 
 	printf("Fin de la conversation\n");
 	close(dS);
