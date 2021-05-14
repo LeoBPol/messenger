@@ -13,6 +13,7 @@
 #define ALLOC 2
 #define NB_CLIENT_MAX
 
+
 const char command_list[3][20] = {"/mp", "/whoishere", "/fin"};
 
 /* STRUCTURE UTILISATEUR */ 
@@ -34,13 +35,12 @@ struct SALON {
 };
 
 /* CRÉATION DE L'UTILISATEUR */
-//struct CLIENT users[100];
 struct CLIENT* users;
 
 /* CRÉATION DU SALON */
 struct SALON salons[10];
 
-/* TESTS */
+/* COMPTEUR CLIENT */
 int nb_client = 0;
 
 /* DECLARATION DU SEMAPHORE */
@@ -104,18 +104,15 @@ void supprimer_client(int i){
 
 	memcpy(&thread_to_stop, &users[i].thread, sizeof(users[i].thread));
 
-
 	int client_to_move_id = 0;
 	for(;client_id < nb_client; client_id++){
 		if(users[client_id].dSC == users[i].dSC){
 			client_to_move_id = client_id;
-			printf("%d\n", client_to_move_id);
        	}
 	}
 	for (; client_to_move_id <  nb_client; client_to_move_id++){
 		memmove(&users[client_to_move_id], &users[client_to_move_id + 1], sizeof(users[client_to_move_id + 1]));
     }
-
 
 	int sem = sem_post(&semaphore);
 	if(sem == -1){
@@ -168,6 +165,7 @@ void *transmission(void *args){
 			supprimer_client(i);
 			pthread_exit(NULL);
 		}
+
 		printf("message : %s", message_recu);
 		strtok(message_recu, "\n");
 
