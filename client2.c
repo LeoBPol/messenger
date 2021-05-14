@@ -82,9 +82,10 @@ void *envoie(void *args){
 
 	while(strcmp(mot,"fin\n")!=0){
 		saisie(mot);
-		printf("test");
+		printf("mot : %s", mot);
 		/* ENVOIE DU MESSAGE */
 		int mes = send(dS, mot, sizeof(mot), 0);
+		printf("sended\n");
 
 		/* GESTION DES ERREURS DE L'ENVOIE DU MESSAGE */
 		if (mes<0){

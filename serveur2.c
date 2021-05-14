@@ -13,10 +13,7 @@
 #define ALLOC 2
 #define NB_CLIENT_MAX
 
-/* TABLEAUX CONTENANT LES SOCKETS, LES PSEUDOS DES CLIENTS ET LES THREADS */
-/*int dSC[100];
-char pseudos[100][100];
-pthread_t threads[100];*/
+const char command_list[3][20] = {"/mp", "/whoishere", "/fin"};
 
 /* STRUCTURE UTILISATEUR */ 
 typedef struct CLIENT CLIENT;
@@ -58,6 +55,17 @@ void printstruct(struct CLIENT c){
 	printf("%d - %s\n", c.dSC, c.pseudo);
 }
 
+int command_id(char* command){
+	int id_command = 0;
+	while (id_command < sizeof(command_list)/sizeof(command_list[0])){
+		if(strcmp(command, command_list[id_command]) == 0){
+			return id_command;
+		}
+		id_command ++;
+	}
+	return -1;
+}
+
 /*
 void *nouveau_salon(int i){
 
@@ -91,18 +99,21 @@ void *transmission(void *args){
 	/* NUMÉRO DU CLIENT QUI ENVOIE LE MESSAGE */
 	int i = (long) args;
 
-	char message_recu[200];
-	char pseudo[100];
-
+	char message_recu[TMAX];
 
 	printf("Thread de transmission pour le client %d\n", i);
 
+	//char message_recu_decompose[3][TMAX];
+
 	char mot[TMAX];
+	char pseudo[100];
+	char command[100];
 	int fin = 0;
-	int nb_octets;
+	char d[] = " ";
+
+	int id_command;
 
 	/* BOUCLE TANT QUE LES MSG SONT DIFFÉRENTS DE "fin" */
-
 	while(1){
 
 		int clientID = -1;
@@ -110,7 +121,6 @@ void *transmission(void *args){
 		/* RECEPTION DU PSEUDO DU DESTINATAIRE */
 		int mes = recv(users[i].dSC, &message_recu, sizeof(message_recu), 0);
 
-		while(strcmp(mes," ") == 1){
 		if (mes<0){
 			perror("Erreur reception mot C1vC2\n");
 			pthread_exit(NULL);
@@ -121,114 +131,134 @@ void *transmission(void *args){
 		}
 		printf("message : %s", message_recu);
 		strtok(message_recu, "\n");
-		char *p = strtok(message_recu, " ");
-		
-		while(p != NULL)
-		{
-		    printf("'%s'\n", p);
-		    p = strtok(NULL, " ");
-		}
-		
-		int pseudo_id = nbClientDisconnected;
-		for (;pseudo_id < nbClient;++pseudo_id){
-			if(strcmp(users[pseudo_id].pseudo, pseudo)==0){
-				clientID = pseudo_id;
-			}
-		}
-		/* SI LE MOT RECU EST "fin" */
-		if(strcmp(mot,"fin\n")==0){
-			close(users[i].dSC);
-			printf("%s (%d) est déconnecté\n", users[pseudo_id].pseudo, i+1);
 
-			int sem = sem_post(&semaphore);
-			if(sem == -1){
-				perror("A problem occured (sem wait)");
-			}
-			
-			pthread_cancel(users[pseudo_id].thread);
-			nbClientDisconnected++;
+		/* RECUPERATION DE LA COMMANDE SAISIE */
+		char *p = strtok(message_recu, d);
+		if (p == NULL){
+			strcpy(command, message_recu);
+		} else {
+			strcpy(command, p);
 		}
 
-		/* SI LE MOT RECU EST "whoishere" */
-		if(strcmp(mot,"whoishere\n")==0){
+		printf("command : %s\n", command);
 
-			send(users[i].dSC, "serveur", sizeof("serveur"), 0);
+		printf("id command = %d\n", command_id(command));
 
-			char pseudos[65000] = "[";
+		id_command = command_id(command);
 
-			/* ENVOIE DES PSEUDOS AU CLIENT */
-			int pseudo_id = nbClientDisconnected;
-			for (;pseudo_id < nbClient;pseudo_id++){
-				char temp_pseudo[100] = "";
-				strcpy(temp_pseudo, users[pseudo_id].pseudo);
-				strcat(pseudos, strcat(temp_pseudo, "] [")); 
-			}
-			pseudos[strlen(pseudos) - 1] = ' ';
+		switch (id_command){
+			case 0:
+				/* RECUPERATION DU PSEUDO DU DESTINATAIRE */
+				p = strtok(NULL, d);
+				strcpy(pseudo, p);
 
-			send(users[i].dSC, &pseudos, sizeof(pseudos), 0);
-
-			clientID = -1;
-			
-		} /* SI LE PSEUDO RECU EST "all" (ON ENVOI LE MESSAGE À TOUT LES CLIENTS) */
-		else if(strcmp(pseudo,"all")==0){
-			char char_nb_octet[10];
-			sprintf(char_nb_octet, "%d", nb_octets);
-			char pseudoToSend[100];
-			
-			int pseudo_id = nbClientDisconnected;
-			for (;pseudo_id < nbClient;pseudo_id++){
-				strcpy(pseudoToSend, users[i].pseudo); 
-				int dSC = users[pseudo_id].dSC;
-
-				/* ENVOIE DU PSEUDO AU DESTINATAIRE */
-				send(dSC, &users[i].pseudo, sizeof(users[i].pseudo), 0);
-
-				/* ENVOIE DU MESSAGE DU CLIENT 1 VERS LE CLIENT 2*/
-				int mes = send(dSC, mot, sizeof(mot), 0);
-
-				/* GESTION DES ERREURS DE L'ENVOIE DU MESSAGE */
-				if (mes<0){
-					perror("Erreur transmission mot C1vC2\n");
-					pthread_exit(NULL);
+				/* RECUPERATION DU MESSAGE SAISIE */
+				p = strtok(NULL, d);
+				while(p != NULL)
+				{
+					strcat(mot, p);
+					strcat(mot, " ");
+				    p = strtok(NULL, d);
 				}
-				if (mes==0){
-					perror("Socket fermée transmission mot C1vC2\n");
-					pthread_exit(NULL);
+				printf("pseudo : %s\n", pseudo);
+				printf("mot : %s\n", mot);
+				
+				int pseudo_id = nbClientDisconnected;
+				for (;pseudo_id < nbClient;++pseudo_id){
+					if(strcmp(users[pseudo_id].pseudo, pseudo)==0){
+						clientID = pseudo_id;
+					}
 				}
-			}
-		
-		} else if(clientID != -1){
+				/* SI LE PSEUDO RECU EST "all" (ON ENVOI LE MESSAGE À TOUT LES CLIENTS) */
+				if(strcmp(pseudo,"all")==0){
 
+					pseudo_id = nbClientDisconnected;
+					for (;pseudo_id < nbClient;pseudo_id++){
 
-			char char_nb_octet[10];
-			sprintf(char_nb_octet, "%d", nb_octets);
+						int dSC = users[pseudo_id].dSC;
 
-			char pseudoToSend[100];
-			strcpy(pseudoToSend, users[i].pseudo); 
-			int dSC = users[clientID].dSC;
+						/* ENVOIE DU PSEUDO AU DESTINATAIRE */
+						send(dSC, &users[i].pseudo, sizeof(users[i].pseudo), 0);
 
-			printf("Envoi du pseudo vers dSC : %d\n", users[clientID].dSC);
+						/* ENVOIE DU MESSAGE DU CLIENT 1 VERS LE CLIENT 2*/
+						int mes = send(dSC, mot, sizeof(mot), 0);
 
-			/* ENVOIE DU PSEUDO AU DESTINATAIRE */
-			send(dSC, &users[i].pseudo, sizeof(users[i].pseudo), 0);
+						/* GESTION DES ERREURS DE L'ENVOIE DU MESSAGE */
+						if (mes<0){
+							perror("Erreur transmission mot C1vC2\n");
+							pthread_exit(NULL);
+						}
+						if (mes==0){
+							perror("Socket fermée transmission mot C1vC2\n");
+							pthread_exit(NULL);
+						}
+					}
+					printf("MESSAGES TRANSMIS\n\n");
+				
+				} else if(clientID != -1){
 
-			/* ENVOIE DU MESSAGE DU CLIENT 1 VERS LE CLIENT 2*/
-			int mes = send(dSC, mot, sizeof(mot), 0);
+					int dSC = users[clientID].dSC;
 
-			/* GESTION DES ERREURS DE L'ENVOIE DU MESSAGE */
-			if (mes<0){
-				perror("Erreur transmission mot C1vC2\n");
-				pthread_exit(NULL);
-			}
-			if (mes==0){
-				perror("Socket fermée transmission mot C1vC2\n");
-				pthread_exit(NULL);
-			}
+					printf("Envoi du pseudo vers dSC : %d\n", users[clientID].dSC);
 
-			printf("MESSAGE TRANSMIS\n\n");
+					/* ENVOIE DU PSEUDO AU DESTINATAIRE */
+					send(dSC, &users[i].pseudo, sizeof(users[i].pseudo), 0);
+
+					/* ENVOIE DU MESSAGE DU CLIENT 1 VERS LE CLIENT 2*/
+					int mes = send(dSC, mot, sizeof(mot), 0);
+
+					/* GESTION DES ERREURS DE L'ENVOIE DU MESSAGE */
+					if (mes<0){
+						perror("Erreur transmission mot C1vC2\n");
+						pthread_exit(NULL);
+					}
+					if (mes==0){
+						perror("Socket fermée transmission mot C1vC2\n");
+						pthread_exit(NULL);
+					}
+
+					printf("MESSAGE TRANSMIS\n\n");
+				}
+				break;
+
+			case 1:
+				send(users[i].dSC, "serveur", sizeof("serveur"), 0);
+
+				char pseudos[65000] = "[";
+
+				/* ENVOIE DES PSEUDOS AU CLIENT */
+				pseudo_id = nbClientDisconnected;
+				for (;pseudo_id < nbClient;pseudo_id++){
+					char temp_pseudo[100] = "";
+					strcpy(temp_pseudo, users[pseudo_id].pseudo);
+					strcat(pseudos, strcat(temp_pseudo, "] [")); 
+				}
+				pseudos[strlen(pseudos) - 1] = ' ';
+
+				send(users[i].dSC, &pseudos, sizeof(pseudos), 0);
+
+				clientID = -1;
+
+				printf("LISTE PSEUDO TRANSMISE\n\n");
+				break;
+
+			case 2:
+				close(users[i].dSC);
+				printf("%s (%d) est déconnecté\n", users[pseudo_id].pseudo, i+1);
+
+				int sem = sem_post(&semaphore);
+				if(sem == -1){
+					perror("A problem occured (sem wait)");
+				}
+				
+				pthread_cancel(users[pseudo_id].thread);
+				nbClientDisconnected++;
+				break;
+
+			default :
+				printf("default statement\n");
 		}
 		
-	}
 	}
 	
 	printf("La discussion est terminée\n");
