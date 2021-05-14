@@ -80,7 +80,7 @@ void *whoishere(){
 void *envoie(void *args){
 	char mot[TMAX];
 
-	while(strcmp(mot,"fin\n")!=0){
+	while(strcmp(mot,"/fin\n")!=0){
 		saisie(mot);
 		printf("mot : %s", mot);
 		/* ENVOIE DU MESSAGE */
@@ -132,7 +132,7 @@ void *recoie(void* args){
 			pthread_exit(NULL);
 		}
 
-		if(strcmp(mot,"file\n")==0){
+		if(strcmp(mot,"/file\n")==0){
 			printf("test");
 		}
 
@@ -149,8 +149,9 @@ void *recoie(void* args){
 		puts("\033[0m");
 
 
-		if(strcmp(mot,"fin\n")==0){
+		if(strcmp(mot,"/fin\n")==0){
 			fin = 1;
+			pthread_exit(NULL);
 		} else {
 			if(etat_message == 1){
 				printf("Saisissez le pseudo du destinataire: \n");
@@ -236,6 +237,7 @@ int main(int argc, char* argv[]){
 	}
 
 	pthread_cancel(threadS);
+	pthread_cancel(threadR);
 
 	printf("Fin de la conversation\n");
 	close(dS);
