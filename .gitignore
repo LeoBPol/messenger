@@ -2,3 +2,5 @@ client
 serveur
 dclient
 dserveur
+./file_to_send
+./file_received

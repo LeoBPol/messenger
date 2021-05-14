@@ -14,7 +14,7 @@
 #define NB_CLIENT_MAX
 
 
-const char command_list[3][20] = {"/mp", "/whoishere", "/fin"};
+const char command_list[4][20] = {"/mp", "/whoishere", "/fin", "/file"};
 
 /* STRUCTURE UTILISATEUR */ 
 typedef struct CLIENT CLIENT;
@@ -139,10 +139,9 @@ void *transmission(void *args){
 	printf("Thread de transmission pour le client %d\n", i);
 
 	//char message_recu_decompose[3][TMAX];
-
-	char mot[TMAX];
 	char pseudo[100];
 	char command[100];
+	char file_name[100];
 	int fin = 0;
 	char d[] = " ";
 
@@ -152,6 +151,7 @@ void *transmission(void *args){
 	while(1){
 
 		int clientID = -1;
+		char mot[TMAX] = "";
 
 		/* RECEPTION DU PSEUDO DU DESTINATAIRE */
 		int mes = recv(users[i].dSC, &message_recu, sizeof(message_recu), 0);
@@ -178,13 +178,14 @@ void *transmission(void *args){
 		}
 
 		printf("command : %s\n", command);
-
-		printf("id command = %d\n", command_id(command));
-
+		
 		id_command = command_id(command);
+
+		printf("id command = %d\n", id_command);
 
 		switch (id_command){
 			case 0:
+
 				/* RECUPERATION DU PSEUDO DU DESTINATAIRE */
 				p = strtok(NULL, d);
 				strcpy(pseudo, p);
@@ -255,6 +256,17 @@ void *transmission(void *args){
 					}
 
 					printf("MESSAGE TRANSMIS\n\n");
+				} else {
+					/* ENVOIE PSEUDO À LA SOURCE */
+					send(users[i].dSC, "serveur", sizeof("serveur"), 0);
+
+					printf("uiiiiiiiiii\n");
+					char error[200] = "Message non distribué. L'utilisateur '";
+					strcat(error, pseudo);
+					strcat(error, "' n'est pas connecté.");
+
+					/* ENVOIE ERREUR À LA SOURCE */
+					send(users[i].dSC, error, sizeof(error), 0);
 				}
 				break;
 
@@ -282,6 +294,84 @@ void *transmission(void *args){
 			case 2:
 				supprimer_client(i);
 				pthread_exit(NULL);
+				break;
+
+			case 3 :
+
+				/* RECUPERATION DU PSEUDO DU DESTINATAIRE */
+				p = strtok(NULL, d);
+				strcpy(pseudo, p);
+
+				printf("pseudo : %s\n", pseudo);
+
+				/* RECUPERATION DU NOM DU FICHIER */
+				p = strtok(NULL, d);
+				strcpy(file_name, p);
+
+				printf("file_name : %s\n", file_name);
+
+				/* RECUPERATION DU CONTENU DU FICHIER */
+				p = strtok(NULL, d);
+				while(p != NULL)
+				{
+					strcat(mot, p);
+					strcat(mot, " ");
+				    p = strtok(NULL, d);
+				}
+
+				printf("content : %s\n", mot);
+				
+				pseudo_id = 0;
+				for (;pseudo_id < nb_client;++pseudo_id){
+					if(strcmp(users[pseudo_id].pseudo, pseudo)==0){
+						clientID = pseudo_id;
+					}
+				}
+
+				if(clientID != -1){
+
+					int dSC = users[clientID].dSC;
+
+					printf("Envoi du pseudo vers dSC : %d\n", users[clientID].dSC);
+
+					/* ENVOIE DU PSEUDO AU DESTINATAIRE */
+					send(dSC, &users[i].pseudo, sizeof(users[i].pseudo), 0);
+
+					char message[TMAX] = "/file ";
+					strcat(message, file_name);
+					strcat(message, " ");
+					strcat(message, mot);
+
+					printf("message : %s\n", message);
+
+					/* ENVOIE DU MESSAGE DU CLIENT 1 VERS LE CLIENT 2*/
+					int mes = send(dSC, message, sizeof(message), 0);
+
+					/* GESTION DES ERREURS DE L'ENVOIE DU MESSAGE */
+					if (mes<0){
+						perror("Erreur transmission mot C1vC2\n");
+						pthread_exit(NULL);
+					}
+					if (mes==0){
+						perror("Socket fermée transmission mot C1vC2\n");
+						pthread_exit(NULL);
+					}
+
+					printf("FICHIER TRANSMIS\n\n");
+				} else {
+					/* ENVOIE PSEUDO À LA SOURCE */
+					send(users[i].dSC, "serveur", sizeof("serveur"), 0);
+
+					char error[200] = "Fichier non distribué. L'utilisateur '";
+					strcat(error, pseudo);
+					strcat(error, "' n'est pas connecté.");
+
+					printf("error : %s\n", error);
+
+					/* ENVOIE ERREUR À LA SOURCE */
+					send(users[i].dSC, error, sizeof(error), 0);
+				}
+
 				break;
 
 			default :
