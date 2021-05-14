@@ -100,26 +100,9 @@ void supprimer_client(int i){
 	pthread_t thread_to_stop;
 
 	close(users[i].dSC);
-	printf("%s (%d) est déconnecté\n", users[i].pseudo, i);
-
-	printf("\n");
+	printf("%s (client %d) est déconnecté\n", users[i].pseudo, i+1);
 
 	memcpy(&thread_to_stop, &users[i].thread, sizeof(users[i].thread));
-
-	/*for (;client_id < nb_client;++client_id){
-		if(users[client_id].dSC == users[i].dSC){
-			found = 1;
-			users[client_id] = 
-		} else if (found == 1){
-			users[client_id] = users[client_id + 1];
-		}
-	}*/
-	printf("Avant la boucle\n");
-	for (int i = 0; i < nb_client+3; ++i){
-		printf("%d : ", i);
-		printstruct(users[i]);
-	}
-	printf("---------------------------\n");
 
 
 	int client_to_move_id = 0;
@@ -130,16 +113,9 @@ void supprimer_client(int i){
        	}
 	}
 	for (; client_to_move_id <  nb_client; client_to_move_id++){
-		//printf("%s\n", users[client_to_move_id].pseudo);
 		memmove(&users[client_to_move_id], &users[client_to_move_id + 1], sizeof(users[client_to_move_id + 1]));
-		/*if (users[client_to_move_id + 1].dSC = 896){
-			users[client_to_move_id].dSC = 0;
-		} else {
-            users[client_to_move_id] = users[client_to_move_id + 1];
-        }*/
     }
 
-	//printf("%s (%d) est déconnecté\n", users[i].pseudo, i);
 
 	int sem = sem_post(&semaphore);
 	if(sem == -1){
@@ -150,15 +126,8 @@ void supprimer_client(int i){
 
 	printf("nb_client : %d\n", nb_client);
 
-	users = realloc(users, sizeof(CLIENT)*(nb_client));
+	users = realloc(users, sizeof(CLIENT)*(nb_client+1));
 	
-	printf("Après la boucle\n");
-	for (int i = 0; i < nb_client; ++i){
-		printf("%d : ", i);
-		printstruct(users[i]);
-	}
-	printf("---------------------------\n");
-
 	pthread_cancel(thread_to_stop);
 }
 
@@ -369,20 +338,18 @@ int main(int argc, char* argv[]){
  	printf("En attente des clients\n");
 
 	while(1){
-		struct CLIENT user;
 
-		if(nb_client > 1){
+		int dSC;
+
+		if (nb_client > 1){
 			users = realloc(users, sizeof(CLIENT)*(nb_client+1));
 		}
+
+		dSC = accept(dSE, (struct sockaddr*) &aC, &lg);
 	
 		/* CONNEXION AVEC UN CLIENT */
-		users[nb_client] = user;
-		printstruct(users[nb_client]);
+		users[nb_client].dSC = dSC;
 
-		users[nb_client].dSC = accept(dSE, (struct sockaddr*) &aC, &lg);
-		while(users[nb_client].dSC == 896){
-			users[nb_client].dSC = accept(dSE, (struct sockaddr*) &aC, &lg);
-		}
 		if (users[nb_client].dSC<0){
 			perror("Erreur de connexion avec le client");
 			return -1;
@@ -399,12 +366,12 @@ int main(int argc, char* argv[]){
 
 		char pseudo_buffer[100];
 		int sizeof_pseudo;
+
 		/* RECEVOIR LA TAILLE DU PSEUDO DU CLIENT */
 		recv(users[nb_client].dSC, &sizeof_pseudo, sizeof(int), 0);
 		
 		/* RECEVOIR LE PSEUDO DU CLIENT */
 		recv(users[nb_client].dSC, &pseudo_buffer, sizeof_pseudo, 0);
-		//memcpy(users[nb_client].pseudo, pseudo_buffer, sizeof(users[nb_client].pseudo));
 		strcpy(users[nb_client].pseudo, pseudo_buffer);
 		printf("Client %d connecté avec le pseudo : %s\n", nb_client+1, users[nb_client].pseudo);
 		
@@ -414,11 +381,15 @@ int main(int argc, char* argv[]){
 			printstruct(users[i]);
 		}*/
 
+		pthread_join(users[nb_client].thread,NULL);
+
 		/* CREATION DES THREADS */
 		if( pthread_create(&users[nb_client].thread, NULL, transmission, (void *) (long) nb_client)){
 			perror("Erreur à la création du thread de transmission entre le client 1 et le client 2 ");
 			return EXIT_FAILURE;
 		}
+
+		printf("Thread lancé\n");
 
 		nb_client++;
 	}
