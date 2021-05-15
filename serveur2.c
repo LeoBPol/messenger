@@ -14,7 +14,7 @@
 #define NB_CLIENT_MAX
 
 
-const char command_list[8][20] = {"/mp", "/whoishere", "/fin","/newSalon","/salonInfo","/salonList","/modifSalon","/salon"};
+const char command_list[9][20] = {"/mp", "/whoishere", "/fin","/newSalon","/salonInfo","/salonList","/modifSalon","/salon","joinSalon"};
 
 /* STRUCTURE UTILISATEUR */ 
 typedef struct CLIENT CLIENT;
@@ -380,11 +380,10 @@ void *transmission(void *args){
 				p = strtok(NULL, d);
 				strcpy(pseudo, p);	
 
-				/* RECUPERATION DU NOM DU SALON */
+				/* RECUPERATION DE LA CAPACITE DU SALON */
 				p = strtok(NULL, d);
 				strcpy(mot, p);
 				int capa = atoi(mot);
-				printf("capa :%d",capa);
 
 				/* RECUPERATION DE LA DESCRIPTION DU SALON */
 				p = strtok(NULL, d);
@@ -398,8 +397,7 @@ void *transmission(void *args){
 				nouveau_salon(pseudo,capa,third_arg,0);
 				memset (third_arg, 0, sizeof (third_arg));// Remise à 0 de third_arg
 
-				remove_from_salon(&users[i],users[i].salon);
-    			add_to_salon(&users[i],pseudo);
+    			rejoindre_salon(&users[i],pseudo);
 
 				int dSC = users[i].dSC;
 
@@ -496,6 +494,7 @@ void *transmission(void *args){
 					
 				}
 				break;
+			case 8: /* REJOINDRE UN DE SON SALON AVEC /salon */
 			default:
 				printf("default statement\n");
 				break;
