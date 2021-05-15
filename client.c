@@ -145,7 +145,7 @@ void *recoie(void* args){
 	/* BOUCLE TANT QUE LES MSG SONT DIFFÉRENTS DE "fin" */
 	while(fin==0){
 
-		mot = "";
+		char mot[TMAX] = "";
 
 		char char_nb_octets[10];
 

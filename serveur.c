@@ -15,7 +15,7 @@
 #define NB_CLIENT_MAX
 
 
-const char command_list[5][20] = {"/mp", "/whoishere", "/fin", "/file", "/getFile"};
+const char command_list[11][20] = {"/mp", "/whoishere", "/fin", "/file", "/getFile", "/newSalon", "/salonInfo", "/salonList", "/modifSalon", "/salon", "/joinSalon"};
 const char path_folder_serv[20] = "./file_on_serv/";
 
 /* STRUCTURE UTILISATEUR */ 
@@ -24,7 +24,7 @@ struct CLIENT{
     int dSC;
     char pseudo[100];
     pthread_t thread;
-    int salon;
+    char salon[100];
 };
 
 /* STRUCTURE SALON */ 
@@ -32,18 +32,22 @@ typedef struct SALON SALON;
 struct SALON {
     char nom_salon[100];
     char description[200];
-    int nb_present;
+    int nb_connecte;
     int capacite;
+    int admin; // 1 si on autorise la suppression/modification du salon , 0 sinon
 };
 
 /* CRÉATION DE L'UTILISATEUR */
 struct CLIENT* users;
 
-/* CRÉATION DU SALON */
+/* CRÉATION DU TABLEAU DE SALONS */
 struct SALON salons[10];
 
 /* COMPTEUR CLIENT */
 int nb_client = 0;
+
+/* COMPTEUR SALON */
+int nb_salon = 0;
 
 /* DECLARATION DU SEMAPHORE */
 sem_t semaphore;
@@ -95,33 +99,6 @@ int command_id(char* command){
 	return -1;
 }
 
-/*
-void *nouveau_salon(int i){
-
-    struct SALON salon;
-    
-    reception(tabClient[i].socketMes, newSalon.name);
-    reception(tabClient[i].socketMes, newSalon.desc);
-    newSalon.nbrClientPres = 0;
-    int capa = 0;
-    int rec = recv(tabClient[i].socketMes, &capa, sizeof(int), 0);
-    if (rec == -1){
-        perror("Erreur 1ere reception\n");
-        exit(0);
-    }
-    if (rec == 0){
-        perror("Socket fermée\n");
-        exit(0);
-    }
-    if (capa < 0 || capa > 200){
-        capa = 10; //je choisi une capacité maximal par défault
-    }
-    newSalon.capacityMax = capa;
-
-    tabSalon[nbrSalon] = newSalon;
-    nbrSalon = nbrSalon + 1; 
-} */
-
 void supprimer_client(int i){
 	int found = 0;
 	int client_id = 0;
@@ -157,6 +134,131 @@ void supprimer_client(int i){
 	pthread_cancel(thread_to_stop);
 }
 
+int recherche_tab_salon(char nom_salon[]){
+	int tmp = 0;
+	while (tmp < nb_salon){
+		if(strcmp(nom_salon, salons[tmp].nom_salon) == 0){
+			return tmp;
+		
+		}
+		printf("%d",tmp);
+		tmp++;
+	}
+	return -1;
+}
+
+void *add_to_salon(struct CLIENT *c, char nom_salon[]){
+	int nb_of_salon = recherche_tab_salon(nom_salon);
+	if(nb_of_salon < 0 || nb_of_salon > sizeof(salons)/8){
+		perror("Impossible de trouver ce salon");
+	}
+	if(salons[nb_of_salon].nb_connecte < salons[nb_of_salon].capacite){
+		strcpy(c->salon,nom_salon);
+		salons[nb_of_salon].nb_connecte = salons[nb_of_salon].nb_connecte +1; // Ajoute un connecté au salon
+	}
+	else{
+		perror("Le Salon est plein impossible de se connecter dedans");
+	}
+
+}
+
+void *remove_from_salon(struct CLIENT *c, char nom_salon[]){
+	int nb_of_salon = recherche_tab_salon(nom_salon);
+	if(nb_of_salon < 0 || nb_of_salon > sizeof(salons)/8){
+		perror("Impossible de trouver ce salon");
+	}
+	if(salons[nb_of_salon].nb_connecte < salons[nb_of_salon].capacite){
+		strcpy(c->salon,"");
+		salons[nb_of_salon].nb_connecte = salons[nb_of_salon].nb_connecte -1; // Enlève un connecté au salon
+	}
+	else{
+		perror("Le Salon est plein impossible de se connecter dedans");
+	}
+
+}
+
+void *nouveau_salon(char nom_salon[], int capa, char description[],int admin){
+
+	if (nb_salon+1 < sizeof(salons)/sizeof*(salons)){
+		struct SALON newSalon;
+
+	    strcpy(newSalon.nom_salon, nom_salon);
+	    strcpy(newSalon.description, description);
+	    newSalon.nb_connecte = 0;
+	    newSalon.admin = admin;
+
+	    /* REMPLISSAGE AUTOMATIQUE DE LA CAPACITE */
+	    int tmp_capa = 10;
+	    if (capa <= 0 || capa > 200){
+	        tmp_capa = 10;
+	    } 
+	    else{
+	    	tmp_capa = capa;
+	    }
+	    newSalon.capacite = tmp_capa;
+
+	    *(salons + nb_salon) = newSalon;
+	    nb_salon++;
+	}
+	else{
+		printf("Il y a trop de salons");
+	}
+}
+
+void *modif_salon(char salon_base[],char new_nom_salon[], int new_capa, char new_description[]){
+
+	int nb_of_salon = recherche_tab_salon(salon_base);
+
+	if (nb_of_salon != -1){
+		if(salons[nb_of_salon].admin = 1){
+			strcpy(salons[nb_of_salon].nom_salon, new_nom_salon);
+		    strcpy(salons[nb_of_salon].description, new_description);
+
+		    /* REMPLISSAGE AUTOMATIQUE DE LA CAPACITE */
+		    int tmp_capa = 0;
+		    if (new_capa <= 0 || new_capa > 200 ){
+		        tmp_capa = 10;
+		    } 
+		    else{
+		    	tmp_capa = new_capa;
+		    }
+		    salons[nb_of_salon].capacite = tmp_capa;
+		}
+		else{
+			printf("Vous n'avez pas les droits pour modifier ce salon");
+		}
+	}
+    else{
+    	printf("Le salon n'existe pas");
+    }
+
+}
+
+void *rejoindre_salon(struct CLIENT *c,char nom_salon[]){
+
+	int nb_of_salon = recherche_tab_salon(nom_salon);
+
+	if (nb_of_salon != -1){
+		if(salons[nb_of_salon].nb_connecte + 1 <= salons[nb_of_salon].capacite){
+			remove_from_salon(c,c->salon);
+    		add_to_salon(c,nom_salon);
+		}
+		printf("Plus de place dans le salon");
+	}
+    else{
+    	printf("Le salon n'existe pas");
+    }
+
+}
+
+void *supprime_salon(char nom_salon[]){
+
+	int nb_of_salon = recherche_tab_salon(nom_salon);
+
+    //TODO  
+    nb_salon--;
+}
+
 /* FONCTION DE TRANSMISSION D'UN MESSAGE D'UN CLIENT VERS L'AUTRE */
 void *transmission(void *args){
 
@@ -165,14 +267,16 @@ void *transmission(void *args){
 
 	char message_recu[TMAX];
 
-	printf("Thread de transmission pour le client %d\n", i);
-
-	//char message_recu_decompose[3][TMAX];
+	char mot[TMAX];
 	char pseudo[100];
 	char command[100];
-	char file_name[100];
+	char third_arg[100];
+	char fourth_arg[100];
 	int fin = 0;
 	char d[] = " ";
+
+	char file_name[100];
+
 
 	int id_command;
 
@@ -466,6 +570,130 @@ void *transmission(void *args){
 					}
 				}
 				break;
+
+			case 5 : // CREER UN NOUVEAU SALON
+
+				/* RECUPERATION DU NOM DU SALON */
+				p = strtok(NULL, d);
+				strcpy(pseudo, p);	
+
+				/* RECUPERATION DE LA CAPACITE DU SALON */
+				p = strtok(NULL, d);
+				strcpy(mot, p);
+				int capa = atoi(mot);
+
+				/* RECUPERATION DE LA DESCRIPTION DU SALON */
+				p = strtok(NULL, d);
+				while(p != NULL)
+				{
+					strcat(third_arg, p);
+					strcat(third_arg, " ");
+				    p = strtok(NULL, d);
+				}
+
+				nouveau_salon(pseudo,capa,third_arg,0);
+				memset (third_arg, 0, sizeof (third_arg));// Remise à 0 de third_arg
+
+    			rejoindre_salon(&users[i],pseudo);
+
+				int dSC = users[i].dSC;
+
+				send(dSC,"serveur", sizeof("serveur"), 0);
+
+				/* ENVOIE DU MESSAGE DU CLIENT 1 VERS LE CLIENT 2*/
+				char creation_message[200] = "Votre salon a ete cree !\n";
+				int mes = send(dSC, creation_message, sizeof(creation_message), 0);
+
+				/* GESTION DES ERREURS DE L'ENVOIE DU MESSAGE */
+				if (mes<0){
+					perror("Erreur transmission mot C1vC2\n");
+					pthread_exit(NULL);						}
+				if (mes==0){
+					perror("Socket fermée transmission mot C1vC2\n");
+					pthread_exit(NULL);
+				}
+				break; 
+			case 6 :
+				printf("Numéro du salon: %d \nNom du salon : %s\n",recherche_tab_salon(users[i].salon),salons[recherche_tab_salon(users[i].salon)].nom_salon);
+				printf("%d clients sur %d dans %s\n",salons[0].nb_connecte,salons[0].capacite,salons[0].nom_salon);
+				break;
+			case 7 :
+				/* 
+				char * message_temp;
+				message_temp = (char *) malloc( message_temp );
+				*/
+				for(int j=0; j<nb_salon; j++){
+					printf("%d - %s [%s] %d/%d\n",j,salons[j].nom_salon, salons[j].description,salons[j].nb_connecte,salons[j].capacite);
+					/*char j_char=j+'0';
+			    	strcat( message_temp, j_char );
+			    	strcat( message_temp, salons[j]->nom_salon);
+			    	strcat( message_temp, salons[j]->description);
+			    	strcat( message_temp, "\n");
+					printf("%s",message_temp); 
+					send(users[i].dSC, &pseudos, sizeof(pseudos), 0); */
+				}
+				break;
+			case 8 : /* MODIFIER LE SALON VOULU avec /modifSalon */
+				/* RECUPERATION DU NOM DU SALON */
+				p = strtok(NULL, d);
+				strcpy(pseudo, p);
+
+				/* RECUPERATION DU NOM DU SALON */
+				p = strtok(NULL, d);
+				strcpy(mot, p);		
+
+				/* RECUPERATION DU NOM DU SALON */
+				p = strtok(NULL, d);
+				strcpy(third_arg, p);
+				capa = atoi(third_arg);
+
+				/* RECUPERATION DE LA DESCRIPTION DU SALON */
+				p = strtok(NULL, d);
+				while(p != NULL)
+				{
+					strcat(fourth_arg, p);
+					strcat(fourth_arg, " ");
+				    p = strtok(NULL, d);
+				}
+				modif_salon(pseudo,mot,capa,fourth_arg);
+				strcpy(fourth_arg,"\0");
+				break;
+			case 9 : /* ENVOYER UN MESSAGE A QUELQU'UN DE SON SALON AVEC /salon */
+				/* RECUPERATION DU MESSAGE SAISIE */
+				memset (mot, 0, sizeof (mot));
+				p = strtok(NULL, d);
+				while(p != NULL)
+				{
+					strcat(mot, p);
+					strcat(mot, " ");
+				    p = strtok(NULL, d);
+				}
+				
+				pseudo_id = 0;
+				for (;pseudo_id < nb_client;pseudo_id++){
+					if(strcmp(users[pseudo_id].salon,users[i].salon)==0){
+						int dSC = users[pseudo_id].dSC;
+
+						/* ENVOIE DU PSEUDO AU DESTINATAIRE */
+						send(dSC, &users[i].pseudo, sizeof(users[i].pseudo), 0);
+
+						/* ENVOIE DU MESSAGE DU CLIENT 1 VERS LE CLIENT 2*/
+						int mes = send(dSC, mot, sizeof(mot), 0);
+
+						/* GESTION DES ERREURS DE L'ENVOIE DU MESSAGE */
+						if (mes<0){
+							perror("Erreur transmission mot C1vC2\n");
+							pthread_exit(NULL);
+						}
+						if (mes==0){
+							perror("Socket fermée transmission mot C1vC2\n");
+							pthread_exit(NULL);
+						}
+					}
+					
+				}
+				break;
+			case 10: /* REJOINDRE UN DE SON SALON AVEC /joinSalon */
 			default :
 				printf("default statement\n");
 		}
@@ -515,6 +743,9 @@ int main(int argc, char* argv[]){
 
 	users = (CLIENT *) malloc(sizeof(CLIENT)*2);
 
+	/* CREATION DU PREMIER SALON */
+ 	nouveau_salon("General",100,"Salon par défaut",0);
+
  	printf("En attente des clients\n");
 
 	while(1){
@@ -526,7 +757,7 @@ int main(int argc, char* argv[]){
 		if (nb_client > 1){
 			users = (CLIENT *) realloc(users, sizeof(CLIENT)*(nb_client+1));
 		}
-	
+
 		/* CONNEXION AVEC UN CLIENT */
 		users[nb_client].dSC = dSC;
 
@@ -555,6 +786,9 @@ int main(int argc, char* argv[]){
 		strcpy(users[nb_client].pseudo, pseudo_buffer);
 		printf("Client %d connecté avec le pseudo : %s\n", nb_client+1, users[nb_client].pseudo);
 		
+		/* AJOUTER LE CLIENT AU GENERAL */
+		add_to_salon(&users[nb_client],"General");
+
 		/* AFFICHAGE DES CLIENTS CONNECTÉS  */
 		/*for (int i = 0; i < nb_client+1; ++i){
 			printf("%d : ", i);
