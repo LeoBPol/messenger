@@ -32,7 +32,7 @@ struct SALON {
     char description[200];
     int nb_connecte;
     int capacite;
-    int suppression; // 1 si on autorise la suppression du salon , 0 sinon
+    int admin; // 1 si on autorise la suppression/modification du salon , 0 sinon
 };
 
 /* CRÉATION DE L'UTILISATEUR */
@@ -115,61 +115,6 @@ int recherche_tab_salon(char nom_salon[]){
 	return -1;
 }
 
-void *nouveau_salon(char nom_salon[], int capa, char description[],int suppression){
-
-	if (nb_salon+1 < sizeof(salons)/sizeof*(salons)){
-		struct SALON newSalon;
-
-	    strcpy(newSalon.nom_salon, nom_salon);
-	    strcpy(newSalon.description, description);
-	    newSalon.nb_connecte = 0;
-	    newSalon.suppression = suppression;
-
-	    /* REMPLISSAGE AUTOMATIQUE DE LA CAPACITE */
-	    int tmp_capa = 10;
-	    if (capa <= 0 || capa > 200){
-	        tmp_capa = 10;
-	    } 
-	    else{
-	    	tmp_capa = capa;
-	    }
-	    newSalon.capacite = tmp_capa;
-
-	    *(salons + nb_salon) = newSalon;
-	    nb_salon++;
-	}
-	else{
-		printf("Il y a trop de salons");
-	}
-}
-
-void *modif_salon(char salon_base[],char new_nom_salon[], int new_capa, char new_description[]){
-
-	int nb_of_salon = recherche_tab_salon(salon_base);
-
-    strcpy(salons[nb_of_salon].nom_salon, new_nom_salon);
-    strcpy(salons[nb_of_salon].description, new_description);
-
-    /* REMPLISSAGE AUTOMATIQUE DE LA CAPACITE */
-    int tmp_capa = 0;
-    if (new_capa <= 0 || new_capa > 200 ){
-        tmp_capa = 10;
-    } 
-    else{
-    	tmp_capa = new_capa;
-    }
-    salons[nb_of_salon].capacite = tmp_capa;
-
-}
-
-void *supprime_salon(char nom_salon[]){
-
-	int nb_of_salon = recherche_tab_salon(nom_salon);
-
-    //TODO  
-    nb_salon--;
-}
-
 void *add_to_salon(struct CLIENT *c, char nom_salon[]){
 	int nb_of_salon = recherche_tab_salon(nom_salon);
 	if(nb_of_salon < 0 || nb_of_salon > sizeof(salons)/8){
@@ -199,6 +144,89 @@ void *remove_from_salon(struct CLIENT *c, char nom_salon[]){
 	}
 
 }
+
+void *nouveau_salon(char nom_salon[], int capa, char description[],int admin){
+
+	if (nb_salon+1 < sizeof(salons)/sizeof*(salons)){
+		struct SALON newSalon;
+
+	    strcpy(newSalon.nom_salon, nom_salon);
+	    strcpy(newSalon.description, description);
+	    newSalon.nb_connecte = 0;
+	    newSalon.admin = admin;
+
+	    /* REMPLISSAGE AUTOMATIQUE DE LA CAPACITE */
+	    int tmp_capa = 10;
+	    if (capa <= 0 || capa > 200){
+	        tmp_capa = 10;
+	    } 
+	    else{
+	    	tmp_capa = capa;
+	    }
+	    newSalon.capacite = tmp_capa;
+
+	    *(salons + nb_salon) = newSalon;
+	    nb_salon++;
+	}
+	else{
+		printf("Il y a trop de salons");
+	}
+}
+
+void *modif_salon(char salon_base[],char new_nom_salon[], int new_capa, char new_description[]){
+
+	int nb_of_salon = recherche_tab_salon(salon_base);
+
+	if (nb_of_salon != -1){
+		if(salons[nb_of_salon].admin = 1){
+			strcpy(salons[nb_of_salon].nom_salon, new_nom_salon);
+		    strcpy(salons[nb_of_salon].description, new_description);
+
+		    /* REMPLISSAGE AUTOMATIQUE DE LA CAPACITE */
+		    int tmp_capa = 0;
+		    if (new_capa <= 0 || new_capa > 200 ){
+		        tmp_capa = 10;
+		    } 
+		    else{
+		    	tmp_capa = new_capa;
+		    }
+		    salons[nb_of_salon].capacite = tmp_capa;
+		}
+		else{
+			printf("Vous n'avez pas les droits pour modifier ce salon");
+		}
+	}
+    else{
+    	printf("Le salon n'existe pas");
+    }
+
+}
+
+void *rejoindre_salon(struct CLIENT *c,char nom_salon[]){
+
+	int nb_of_salon = recherche_tab_salon(nom_salon);
+
+	if (nb_of_salon != -1){
+		if(salons[nb_of_salon].nb_connecte + 1 <= salons[nb_of_salon].capacite){
+			remove_from_salon(c,c->salon);
+    		add_to_salon(c,nom_salon);
+		}
+		printf("Plus de place dans le salon");
+	}
+    else{
+    	printf("Le salon n'existe pas");
+    }
+
+}
+
+void *supprime_salon(char nom_salon[]){
+
+	int nb_of_salon = recherche_tab_salon(nom_salon);
+
+    //TODO  
+    nb_salon--;
+}
+
 /* FONCTION DE TRANSMISSION D'UN MESSAGE D'UN CLIENT VERS L'AUTRE */
 void *transmission(void *args){
 
