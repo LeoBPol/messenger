@@ -5,8 +5,10 @@
 /file [destinataire] [nameFichier]  
 /getFile [nameFichier]  
 /fileList  
-/newChannel [nameChannel] [description]  
-/modifChannel [nameChannel][newName][newDescription]  
+/salonList	OK
+/salon [message] OK
+/newSalon [nameChannel] [capacite] [description]  
+/modifChannel [nameChannel][newName][newCapacite] [newDescription]   OK
 /delChannel [nameChannel]  
 /connectChannel [nameChannel]  
 /fin  
