@@ -27,7 +27,7 @@ void saisie(char *mot){
 	fgets(mot,TMAX,stdin); 
 }
 
-/* FONCTION DE RÉCUPÉRATION DES FICHIERS A ENVOYER */
+/* FONCTION DE RÉCUPÉRATION DES  */
 int getFile(){
     struct dirent *dir;
     /*opendir() renvoie un pointeur de type DIR.*/
@@ -57,6 +57,7 @@ void *envoie(void *args){
 	while(strcmp(mot,"/fin\n")!=0){
 		saisie(mot);
 		strcpy(mot_to_send, mot);
+		printf("mot : %s", mot);
 		char *p = strtok(mot, d);
 
 		if (strcmp(mot,"/fileList\n")==0){
@@ -91,7 +92,6 @@ void *envoie(void *args){
 				while (fgets(str, 1000, fps) != NULL) {
 					strcat(file_content, str);
 				}	
-				file_content[strlen(file_content)-1] = '\0';
 
 				char message[TMAX] = "/file ";
 				strcat(message, pseudo);
@@ -145,15 +145,17 @@ void *recoie(void* args){
 	/* BOUCLE TANT QUE LES MSG SONT DIFFÉRENTS DE "fin" */
 	while(fin==0){
 
-		mot = "";
-
 		char char_nb_octets[10];
 
 		/* RECEPTION DU PSEUDO DU CLIENT */
 		recv(dS, &pseudoOther, sizeof(pseudoOther), 0);
 
+		printf("pseudoOther : %s\n", pseudoOther);
+
 		/* RECEPTION DU MESSAGE */
 		int mes = recv(dS, &mot, sizeof(mot), 0); 
+
+		printf("mot : %s\n", mot);
 
 		/* GESTION DES ERREURS DE LA RECEPTION DU MESSAGE */
 		if (mes<0){
@@ -165,11 +167,16 @@ void *recoie(void* args){
 			pthread_exit(NULL);
 		}
 
+		printf("wshhhh 1\n");
 		strcpy(mot_to_print, mot);
 		char *recv = strtok(mot, d);
 
+		printf("wshhhh 2\n");
 		if(strcmp(mot,"")!=0){
+			printf("ueiurzonv\n");
 			if(strcmp(recv,"/file")==0){
+
+				printf("wshhhh 3\n");
 
 				char file_name[100];
 				recv = strtok(NULL, d);
@@ -182,14 +189,18 @@ void *recoie(void* args){
 					strcat(content, " ");
 					recv = strtok(NULL, d);
 				}
-				content[strlen(content)-1] = '\0';
+
+				printf("wshhhh 4\n");
 
 				char file_path[100];
 				strcpy(file_path, path_folder_recv);
 				strcat(file_path, file_name);
 
+				printf("wshhhh 5\n");
+
 				FILE* fps = fopen(file_path, "w");
 
+				printf("wshhhh 6\n");
 				puts("\033[1m");
 				printf( "%c[2K", ASCII_ESC );
 				printf( "%c[A", ASCII_ESC );
