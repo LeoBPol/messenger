@@ -9,12 +9,14 @@
 #include <pthread.h>
 #include <signal.h>
 #include <semaphore.h>
+#include <dirent.h>
 #define TMAX 65000 /* TAILLE MAXIMALE D'UN MESSAGE EN OCTET */
 #define ALLOC 2
 #define NB_CLIENT_MAX
 
 
-const char command_list[4][20] = {"/mp", "/whoishere", "/fin", "/file"};
+const char command_list[5][20] = {"/mp", "/whoishere", "/fin", "/file", "/getFile"};
+const char path_folder_serv[20] = "./file_on_serv/";
 
 /* STRUCTURE UTILISATEUR */ 
 typedef struct CLIENT CLIENT;
@@ -50,6 +52,33 @@ sem_t semaphore;
 
 /* DECLARATION DU SOCKET D'ECOUTE */
 int dSE;
+
+/* FONCTION DE RÉCUPÉRATION DES FICHIERS DU SERVEUR */
+const char* get_file(){
+    struct dirent *dir;
+    char* file_list = "";
+    DIR *d = opendir(path_folder_serv); 
+    if (d){
+        while ((dir = readdir(d)) != NULL)
+        {  
+        	char list[TMAX];
+            if(strcmp(dir->d_name,".")!=0  && strcmp(dir->d_name,"..") != 0){
+            	strcat(list, "[");
+            	strcat(list, dir->d_name);
+            	strcat(list, "] ");
+            }
+            file_list = list;
+        }
+        if (strlen(file_list) == 0)
+        {
+        	char error[200] = "Pas de fichier stocké par le serveur à l'adresse suivante ";
+        	strcat(error, path_folder_serv);
+        	file_list = error;
+        }
+        closedir(d);
+    }
+    return file_list;
+}
 
 void printstruct(struct CLIENT c){
 	printf("%d - %s\n", c.dSC, c.pseudo);
@@ -355,10 +384,88 @@ void *transmission(void *args){
 
 					/* ENVOIE ERREUR À LA SOURCE */
 					send(users[i].dSC, error, sizeof(error), 0);
+
+					printf("ERREUR TRANSMISE\n\n");
 				}
 
 				break;
 
+			case 4:
+
+				/* ENVOIE PSEUDO A LA SOURCE */
+				send(users[i].dSC, "serveur", sizeof("serveur"), 0);
+
+				/* RECUPERATION DU NOM DU FICHIER */
+				p = strtok(NULL, d);
+
+				if (p == NULL){
+
+					//printf("wshhhh 1\n");
+
+					/* ENVOIE LISTE DES FICHIERS A LA SOURCE */
+					char file_list_to_send[TMAX];
+
+					strcpy(file_list_to_send, get_file());
+
+					//printf("wshhhh 2\n");
+					//printf("file_list : %s\n", file_list_to_send);
+
+					//printf("wshhhh 3\n");
+					//printf("size : %ld\n", strlen(file_list_to_send));
+					send(users[i].dSC, file_list_to_send, strlen(file_list_to_send), 0);
+
+					printf("LISTE FICHIER TRANSMISE\n\n");
+
+				} else {
+					char file_name[100];
+					strcpy(file_name, p);
+					strtok(file_name, "\n");
+					printf("file_name : %s\n", file_name);
+
+					char path_file[100] = "";
+					strcpy(path_file, path_folder_serv);
+					strcat(path_file, p);
+					strtok(path_file, "\n");
+
+					FILE *fps = fopen(path_file, "r");
+					if (fps == NULL){
+						printf("Ne peux pas ouvrir le fichier suivant : %s", path_file);
+					}
+					else {
+						printf("Fichier ouvert : %s\n", path_file);
+						char file_content[TMAX] = "";
+						char str[1000] = "";
+
+						/*RECUPERER LE CONTENU DU FICHIER*/
+						while (fgets(str, 1000, fps) != NULL) {
+							strcat(file_content, str);
+						}	
+						file_content[strlen(file_content)-1] = '\0';
+
+						char message[TMAX] = "/file ";
+						strcat(message, pseudo);
+						strcat(message, " ");
+						strcat(message, file_name);
+						strcat(message, " ");
+						strcat(message, file_content);
+
+						/* ENVOIE DU MESSAGE */
+						int mes = send(users[i].dSC, message, strlen(message), 0);
+
+						/* GESTION DES ERREURS DE L'ENVOIE DU MESSAGE */
+						if (mes<0){
+							perror("Erreur envoie fichier\n");
+							pthread_exit(NULL);
+						}
+						if (mes==0){
+							perror("Socket fermée envoie fichier\n");
+							pthread_exit(NULL);
+						}
+
+						printf("FICHIER TRANSMIS\n\n");
+					}
+				}
+				break;
 			default :
 				printf("default statement\n");
 		}
@@ -414,11 +521,11 @@ int main(int argc, char* argv[]){
 
 		int dSC;
 
-		if (nb_client > 1){
-			users = realloc(users, sizeof(CLIENT)*(nb_client+1));
-		}
-
 		dSC = accept(dSE, (struct sockaddr*) &aC, &lg);
+
+		if (nb_client > 1){
+			users = (CLIENT *) realloc(users, sizeof(CLIENT)*(nb_client+1));
+		}
 	
 		/* CONNEXION AVEC UN CLIENT */
 		users[nb_client].dSC = dSC;
@@ -463,6 +570,8 @@ int main(int argc, char* argv[]){
 		}
 
 		nb_client++;
+
+		printf("nb_client : %d\n", nb_client);
 	}
 	close(dSE);
 	printf("Fin du programme\n");

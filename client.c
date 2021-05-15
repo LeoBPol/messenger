@@ -27,7 +27,7 @@ void saisie(char *mot){
 	fgets(mot,TMAX,stdin); 
 }
 
-/* FONCTION DE RÉCUPÉRATION DES  */
+/* FONCTION DE RÉCUPÉRATION DES FICHIERS A ENVOYER */
 int getFile(){
     struct dirent *dir;
     /*opendir() renvoie un pointeur de type DIR.*/
@@ -91,6 +91,7 @@ void *envoie(void *args){
 				while (fgets(str, 1000, fps) != NULL) {
 					strcat(file_content, str);
 				}	
+				file_content[strlen(file_content)-1] = '\0';
 
 				char message[TMAX] = "/file ";
 				strcat(message, pseudo);
@@ -144,6 +145,8 @@ void *recoie(void* args){
 	/* BOUCLE TANT QUE LES MSG SONT DIFFÉRENTS DE "fin" */
 	while(fin==0){
 
+		mot = "";
+
 		char char_nb_octets[10];
 
 		/* RECEPTION DU PSEUDO DU CLIENT */
@@ -179,6 +182,7 @@ void *recoie(void* args){
 					strcat(content, " ");
 					recv = strtok(NULL, d);
 				}
+				content[strlen(content)-1] = '\0';
 
 				char file_path[100];
 				strcpy(file_path, path_folder_recv);
