@@ -115,29 +115,32 @@ int recherche_tab_salon(char nom_salon[]){
 	return -1;
 }
 
-void *nouveau_salon(char nom_salon[], int capa, char description[],int suppression){	
+void *nouveau_salon(char nom_salon[], int capa, char description[],int suppression){
 
-	
-    struct SALON newSalon;
+	if (nb_salon+1 < sizeof(salons)/sizeof*(salons)){
+		struct SALON newSalon;
 
-    strcpy(newSalon.nom_salon, nom_salon);
-    strcpy(newSalon.description, description);
-    newSalon.nb_connecte = 0;
-    newSalon.suppression = suppression;
+	    strcpy(newSalon.nom_salon, nom_salon);
+	    strcpy(newSalon.description, description);
+	    newSalon.nb_connecte = 0;
+	    newSalon.suppression = suppression;
 
-    /* REMPLISSAGE AUTOMATIQUE DE LA CAPACITE */
-    int tmp_capa = 0;
-    if (capa < 0 || capa > 200){
-        tmp_capa = 10;
-    } 
-    else{
-    	tmp_capa = capa;
-    }
-    newSalon.capacite = tmp_capa;
+	    /* REMPLISSAGE AUTOMATIQUE DE LA CAPACITE */
+	    int tmp_capa = 10;
+	    if (capa <= 0 || capa > 200){
+	        tmp_capa = 10;
+	    } 
+	    else{
+	    	tmp_capa = capa;
+	    }
+	    newSalon.capacite = tmp_capa;
 
-    *(salons + nb_salon) = newSalon;
-    nb_salon++;
-
+	    *(salons + nb_salon) = newSalon;
+	    nb_salon++;
+	}
+	else{
+		printf("Il y a trop de salons");
+	}
 }
 
 void *modif_salon(char salon_base[],char new_nom_salon[], int new_capa, char new_description[]){
@@ -149,7 +152,7 @@ void *modif_salon(char salon_base[],char new_nom_salon[], int new_capa, char new
 
     /* REMPLISSAGE AUTOMATIQUE DE LA CAPACITE */
     int tmp_capa = 0;
-    if (new_capa < 0 || new_capa > 200){
+    if (new_capa <= 0 || new_capa > 200 ){
         tmp_capa = 10;
     } 
     else{
@@ -163,7 +166,7 @@ void *supprime_salon(char nom_salon[]){
 
 	int nb_of_salon = recherche_tab_salon(nom_salon);
 
-    //TODO : 
+    //TODO  
     nb_salon--;
 }
 
@@ -353,6 +356,7 @@ void *transmission(void *args){
 				p = strtok(NULL, d);
 				strcpy(mot, p);
 				int capa = atoi(mot);
+				printf("capa :%d",capa);
 
 				/* RECUPERATION DE LA DESCRIPTION DU SALON */
 				p = strtok(NULL, d);
