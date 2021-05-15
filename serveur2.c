@@ -39,7 +39,7 @@ struct SALON {
 struct CLIENT* users;
 
 /* CRÉATION DU TABLEAU DE SALONS */
-struct SALON* salons[10];
+struct SALON salons[10];
 
 /* COMPTEUR CLIENT */
 int nb_client = 0;
@@ -105,7 +105,7 @@ void supprimer_client(int i){
 int recherche_tab_salon(char nom_salon[]){
 	int tmp = 0;
 	while (tmp < nb_salon){
-		if(strcmp(nom_salon, salons[tmp]->nom_salon) == 0){
+		if(strcmp(nom_salon, salons[tmp].nom_salon) == 0){
 			return tmp;
 		
 		}
@@ -115,14 +115,15 @@ int recherche_tab_salon(char nom_salon[]){
 	return -1;
 }
 
-void *nouveau_salon(char nom_salon[], int capa, char description[],int suppression){
+void *nouveau_salon(char nom_salon[], int capa, char description[],int suppression){	
 
-    struct SALON* newSalon;
+	
+    struct SALON newSalon;
 
-    strcpy(newSalon->nom_salon, nom_salon);
-    strcpy(newSalon->description, description);
-    newSalon->nb_connecte = 0;
-    newSalon->suppression = suppression;
+    strcpy(newSalon.nom_salon, nom_salon);
+    strcpy(newSalon.description, description);
+    newSalon.nb_connecte = 0;
+    newSalon.suppression = suppression;
 
     /* REMPLISSAGE AUTOMATIQUE DE LA CAPACITE */
     int tmp_capa = 0;
@@ -132,9 +133,9 @@ void *nouveau_salon(char nom_salon[], int capa, char description[],int suppressi
     else{
     	tmp_capa = capa;
     }
-    newSalon->capacite = tmp_capa;
+    newSalon.capacite = tmp_capa;
 
-    salons[nb_salon] = newSalon;
+    *(salons + nb_salon) = newSalon;
     nb_salon++;
 
 }
@@ -143,8 +144,8 @@ void *modif_salon(char salon_base[],char new_nom_salon[], int new_capa, char new
 
 	int nb_of_salon = recherche_tab_salon(salon_base);
 
-    strcpy(salons[nb_of_salon]->nom_salon, new_nom_salon);
-    strcpy(salons[nb_of_salon]->description, new_description);
+    strcpy(salons[nb_of_salon].nom_salon, new_nom_salon);
+    strcpy(salons[nb_of_salon].description, new_description);
 
     /* REMPLISSAGE AUTOMATIQUE DE LA CAPACITE */
     int tmp_capa = 0;
@@ -154,7 +155,7 @@ void *modif_salon(char salon_base[],char new_nom_salon[], int new_capa, char new
     else{
     	tmp_capa = new_capa;
     }
-    salons[nb_of_salon]->capacite = tmp_capa;
+    salons[nb_of_salon].capacite = tmp_capa;
 
 }
 
@@ -171,9 +172,9 @@ void *add_to_salon(struct CLIENT *c, char nom_salon[]){
 	if(nb_of_salon < 0 || nb_of_salon > sizeof(salons)/8){
 		perror("Impossible de trouver ce salon");
 	}
-	if(salons[nb_of_salon]->nb_connecte < salons[nb_of_salon]->capacite){
+	if(salons[nb_of_salon].nb_connecte < salons[nb_of_salon].capacite){
 		strcpy(c->salon,nom_salon);
-		salons[nb_of_salon]->nb_connecte = salons[nb_of_salon]->nb_connecte +1; // Ajoute un connecté au salon
+		salons[nb_of_salon].nb_connecte = salons[nb_of_salon].nb_connecte +1; // Ajoute un connecté au salon
 	}
 	else{
 		perror("Le Salon est plein impossible de se connecter dedans");
@@ -186,9 +187,9 @@ void *remove_from_salon(struct CLIENT *c, char nom_salon[]){
 	if(nb_of_salon < 0 || nb_of_salon > sizeof(salons)/8){
 		perror("Impossible de trouver ce salon");
 	}
-	if(salons[nb_of_salon]->nb_connecte < salons[nb_of_salon]->capacite){
+	if(salons[nb_of_salon].nb_connecte < salons[nb_of_salon].capacite){
 		strcpy(c->salon,"");
-		salons[nb_of_salon]->nb_connecte = salons[nb_of_salon]->nb_connecte -1; // Enlève un connecté au salon
+		salons[nb_of_salon].nb_connecte = salons[nb_of_salon].nb_connecte -1; // Enlève un connecté au salon
 	}
 	else{
 		perror("Le Salon est plein impossible de se connecter dedans");
@@ -365,8 +366,8 @@ void *transmission(void *args){
 				nouveau_salon(pseudo,capa,third_arg,0);
 				memset (third_arg, 0, sizeof (third_arg));// Remise à 0 de third_arg
 
-				//remove_from_salon(&users[i],users[i].salon);
-    			//add_to_salon(&users[i],pseudo);
+				remove_from_salon(&users[i],users[i].salon);
+    			add_to_salon(&users[i],pseudo);
 
 				int dSC = users[i].dSC;
 
@@ -384,8 +385,8 @@ void *transmission(void *args){
 				}
 				break; 
 			case 4:
-				printf("Numéro du salon: %d \nNom du salon : %s\n",recherche_tab_salon(users[i].salon),salons[recherche_tab_salon(users[i].salon)]->nom_salon);
-				printf("%d clients sur %d dans %s\n",salons[0]->nb_connecte,salons[0]->capacite,salons[0]->nom_salon);
+				printf("Numéro du salon: %d \nNom du salon : %s\n",recherche_tab_salon(users[i].salon),salons[recherche_tab_salon(users[i].salon)].nom_salon);
+				printf("%d clients sur %d dans %s\n",salons[0].nb_connecte,salons[0].capacite,salons[0].nom_salon);
 				break;
 			case 5:
 				/* 
@@ -393,7 +394,7 @@ void *transmission(void *args){
 				message_temp = (char *) malloc( message_temp );
 				*/
 				for(int j=0; j<nb_salon; j++){
-					printf("%d - %s [%s] %d/%d\n",j,salons[j]->nom_salon, salons[j]->description,salons[j]->nb_connecte,salons[j]->capacite);
+					printf("%d - %s [%s] %d/%d\n",j,salons[j].nom_salon, salons[j].description,salons[j].nb_connecte,salons[j].capacite);
 					/*char j_char=j+'0';
 			    	strcat( message_temp, j_char );
 			    	strcat( message_temp, salons[j]->nom_salon);
