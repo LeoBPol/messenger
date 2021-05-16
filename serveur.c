@@ -127,8 +127,6 @@ void supprimer_client(int i){
 
 	nb_client--;
 
-	printf("nb_client : %d\n", nb_client);
-
 	users = realloc(users, sizeof(CLIENT)*(nb_client+1));
 	
 	pthread_cancel(thread_to_stop);
@@ -640,16 +638,16 @@ void *transmission(void *args){
 
 				int dSC = users[i].dSC;
 
-				send(dSC,"serveur", sizeof("serveur"), 0);
-				printf("Salon Crée");
+				send(dSC,"Serveur :", strlen("serveur")*sizeof(char), 0);
 				/* ENVOIE DU MESSAGE DU CLIENT 1 VERS LE CLIENT 2*/
 				char creation_message[200] = "Votre salon a ete cree !\n";
-				int mes = send(dSC, creation_message, sizeof(creation_message), 0);
+				int mes = send(dSC, creation_message, strlen(creation_message)*sizeof(char), 0);
 
 				/* GESTION DES ERREURS DE L'ENVOIE DU MESSAGE */
 				if (mes<0){
 					perror("Erreur transmission mot C1vC2\n");
-					pthread_exit(NULL);						}
+					pthread_exit(NULL);						
+				}
 				if (mes==0){
 					perror("Socket fermée transmission mot C1vC2\n");
 					pthread_exit(NULL);
@@ -660,7 +658,6 @@ void *transmission(void *args){
 				printf("%d clients sur %d dans %s\n",salons[0].nb_connecte,salons[0].capacite,salons[0].nom_salon);
 				break;
 			case 7:
-				printf("Vous etes dans le SALONLIST\n");
 				strcpy(pseudos,"Serveur");
 				for(int j=0; j<nb_salon; j++){
 					char buffer[100];
@@ -684,9 +681,9 @@ void *transmission(void *args){
 				printf("%s",mot);
 
 				/* ENVOIE DU PSEUDO */
-				send(users[i].dSC, &pseudos, strlen(pseudos), 0);
+				send(users[i].dSC, &pseudos, strlen(pseudos)*sizeof(char), 0);
 				/* ENVOIE DU MESSAGE */
-				mes = send(users[i].dSC, &mot, strlen(mot), 0); 
+				mes = send(users[i].dSC, &mot, strlen(mot)*sizeof(char), 0); 
 				memset (mot, 0, sizeof (mot));
 
 				/* GESTION DES ERREURS DE L'ENVOIE DU MESSAGE */
@@ -698,11 +695,8 @@ void *transmission(void *args){
 					perror("Socket fermée envoie fichier\n");
 					pthread_exit(NULL);
 				}
-
-				printf("INFOS TRANSMISES\n\n");  
 				break;
 			case 8: /* MODIFIER LE SALON VOULU avec /modifSalon */
-				printf("Salon MODIFIE");
 				/* RECUPERATION DU NOM DU SALON */
 				p = strtok(NULL, d);
 				strcpy(pseudo, p);
@@ -744,10 +738,10 @@ void *transmission(void *args){
 						int dSC = users[pseudo_id].dSC;
 
 						/* ENVOIE DU PSEUDO AU DESTINATAIRE */
-						send(dSC, &users[i].pseudo, sizeof(users[i].pseudo), 0);
+						send(dSC, &users[i].pseudo, strlen(users[i].pseudo)*sizeof(char), 0);
 
 						/* ENVOIE DU MESSAGE DU CLIENT 1 VERS LE CLIENT 2*/
-						int mes = send(dSC, mot, sizeof(mot), 0);
+						int mes = send(dSC, mot, strlen(mot)*sizeof(char), 0);
 
 						/* GESTION DES ERREURS DE L'ENVOIE DU MESSAGE */
 						if (mes<0){
@@ -775,8 +769,8 @@ void *transmission(void *args){
 				strcpy(mot, "Vous avez rejoint le salon ");
 				strcat(mot, pseudo);
 
-				send(dSC, "Serveur",sizeof("Serveur"), 0);
-				mes = send(dSC,&mot,sizeof(mot), 0);
+				send(dSC, "Serveur",strlen("Serveur")*sizeof(char), 0);
+				mes = send(dSC,&mot,strlen(mot)*sizeof(char), 0);
 				if (mes<0){
 					perror("Erreur transmission mot C1vC2\n");
 					pthread_exit(NULL);
@@ -906,7 +900,6 @@ int main(int argc, char* argv[]){
 
 		nb_client++;
 
-		printf("nb_client : %d\n", nb_client);
 	}
 	close(dSE);
 	printf("Fin du programme\n");
