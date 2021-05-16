@@ -6,6 +6,7 @@
 const char pseudo_serveur[7] = "serveur";
 const char command_list[12][20] = {"/mp", "/whoishere", "/fin", "/file", "/getFile", "/newSalon", "/infoSalon", "/listSalon", "/modifSalon", "/salon", "/joinSalon", "/delSalon"};
 const char path_folder_serv[20] = "./file_on_serv/";
+const char path_folder_channel_list[20] = "channelList.txt";
 
 /* STRUCTURE UTILISATEUR */ 
 typedef struct CLIENT CLIENT;
@@ -131,6 +132,63 @@ void supprimer_client(struct CLIENT *c){
 
 
 /* FONCTIONS SALON */
+void save_salon(char nom_salon[]){
+
+	FILE* fps = fopen(path_folder_channel_list, "a");
+
+	if (fps == NULL){
+		printf("Ne peux pas ouvrir le fichier à l'emplacement suivante : %s", path_folder_channel_list);
+	} else {
+		printf("Fichier %s modifié en ajoutant le salon : %s\n", path_folder_channel_list, nom_salon);
+		strcat(nom_salon, "\n");
+		fputs(nom_salon, fps);
+	}
+	fclose(fps);
+
+}
+
+void unsave_salon(char nom_salon[]){
+
+	char d[] = "\n";
+	char *channel_list[10];
+	int nb_channel = 0;
+
+	FILE* fps = fopen(path_folder_channel_list, "r");
+
+	if (fps == NULL){
+		printf("Ne peux pas ourvrir le fichier à l'emplacement suivante : %s", path_folder_channel_list);
+	} else {
+		char file_content[TMAX] = "";
+		char str[1000] = "";
+
+		/*RECUPERER LE CONTENU DU FICHIER*/
+		while (fgets(str, 1000, fps) != NULL) {
+			strcat(file_content, str);
+		}
+
+		char *p = strtok(file_content, d);
+		while(p != NULL){
+			if (strcmp(p, nom_salon) != 0){
+				channel_list[nb_channel] = p;
+				nb_channel++;
+			}
+			p = strtok(NULL, d);
+		}
+
+		fps = freopen(path_folder_channel_list, "w", fps);
+
+		/* REENREGISTREMENT DES SALONS */
+		int id_channel = 0;
+		for(;id_channel < nb_channel;id_channel++){
+			printf("channel_list[%d] : %s\n", id_channel, channel_list[id_channel]);
+ 			fputs(channel_list[id_channel], fps);
+ 			fputs("\n", fps);
+		}
+		printf("Fichier %s modifié en supprimant le salon : %s\n", path_folder_channel_list, nom_salon);
+	}
+	fclose(fps);
+}
+
 int recherche_tab_salon(char nom_salon[]){
 	int tmp = 0;
 	/* ON CHHERCHE L'INDICE DU SALON VOULU EN PARCOURANT TOUT LE TABLEAU DE SALON */
@@ -233,6 +291,9 @@ void *modif_salon(char salon_base[],char new_nom_salon[], int new_capa, char new
 		    	tmp_capa = new_capa;
 		    }
 		    salons[nb_of_salon].capacite = tmp_capa;
+
+		    unsave_salon(char salon_base[]);
+		    save_salon(char new_nom_salon[]);
 		}
 		/* SINON ON ENVOI UNE ERREUR */
 		else{
@@ -287,13 +348,15 @@ void *supprime_salon(char nom_salon[]){
 	    }
 	    /* ON DECREMANTE LE NOMBRE DE SALONS */
 	    nb_salon--; 
+
+	    unsave_salon(nom_salon);
 		}
 		else{
-			printf("Vous n'avez pas les droits pour supprimer ce salon");
+			printf("Vous n'avez pas les droits pour supprimer un salon\n");
 		}
 	}
     else{
-    	printf("Le salon n'existe pas\n");
+    	printf("Le salon %s n'existe pas\n",nom_salon);
     }
 }
 
@@ -640,6 +703,8 @@ void *transmission(void* args){
 				nouveau_salon(pseudo,capa,third_arg,1);
 				memset (third_arg, 0, sizeof (third_arg));// Remise à 0 de third_arg
 
+				save_salon(pseudo);
+
     			rejoindre_salon(c,pseudo);
 
 				int dSC = c->dSC;
@@ -794,7 +859,7 @@ void *transmission(void* args){
 				strcpy(pseudo, p);
 
 				supprime_salon(pseudo);
-				//printf("Suppresion effectuée\n");
+				printf("SUPPRESSION EFFECTUE\n\n");
 
 				break;
 			default :
@@ -807,6 +872,46 @@ void *transmission(void* args){
 	printf("En attente des clients\n");
 
 	pthread_exit(NULL);
+}
+
+void init_salon(){
+
+	char d[] = "\n";
+	char *channel_list[10];
+	int nb_channel = 0;
+
+	FILE *fps = fopen(path_folder_channel_list, "r");
+	if (fps == NULL){
+		printf("Ne peux pas ouvrir le fichier suivant : %s", path_folder_channel_list);
+	}
+	else {
+		printf("Fichier ouvert : %s\n", path_folder_channel_list);
+		char file_content[TMAX] = "";
+		char str[1000] = "";
+
+		/*RECUPERER LE CONTENU DU FICHIER*/
+		while (fgets(str, 1000, fps) != NULL) {
+			strcat(file_content, str);
+		}	
+
+		char *p = strtok(file_content, d);
+		while(p != NULL){
+			channel_list[nb_channel] = p;
+			printf("channel_list[%d] : %s\n", nb_channel, channel_list[nb_channel]);
+			p = strtok(NULL, d);
+			nb_channel++;
+		}
+
+		printf("A la boucle\n");
+		printf("size of : %ld\n", sizeof(channel_list)/sizeof(channel_list[0]));
+
+		/* CREATION DES SALONS */
+		int id_channel = 0;
+		for(;id_channel < nb_channel;id_channel++){
+ 			nouveau_salon(channel_list[id_channel],100,"Salon récupéré par sauvegarde",1);
+		}
+	}
+	fclose(fps);
 }
 
 int main(int argc, char* argv[]){
@@ -846,8 +951,7 @@ int main(int argc, char* argv[]){
 
 	users = (CLIENT *) malloc(sizeof(CLIENT)*2);
 
-	/* CREATION DU PREMIER SALON */
- 	nouveau_salon("General",100,"Salon par défaut",0);
+	init_salon();
 
  	printf("En attente des clients\n");
 
