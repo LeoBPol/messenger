@@ -1,41 +1,30 @@
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
-#include <stdint.h>
-#include <unistd.h>
-#include <arpa/inet.h>
-#include <pthread.h>
-#include <signal.h>
-#include <semaphore.h>
-#include <dirent.h>
+#include "serveur.h"
 #define TMAX 65000 /* TAILLE MAXIMALE D'UN MESSAGE EN OCTET */
 #define ALLOC 2
 #define NB_CLIENT_MAX
 
-
+const char pseudo_serveur[7] = "serveur";
 const char command_list[11][20] = {"/mp", "/whoishere", "/fin", "/file", "/getFile", "/newSalon", "/salonInfo", "/salonList", "/modifSalon", "/salon", "/joinSalon"};
 const char path_folder_serv[20] = "./file_on_serv/";
 
 /* STRUCTURE UTILISATEUR */ 
 typedef struct CLIENT CLIENT;
-struct CLIENT{
+/*struct CLIENT{
     int dSC;
     char pseudo[100];
     pthread_t thread;
     char salon[100];
-};
+};*/
 
 /* STRUCTURE SALON */ 
 typedef struct SALON SALON;
-struct SALON {
+/*struct SALON {
     char nom_salon[100];
     char description[200];
     int nb_connecte;
     int capacite;
     int admin; // 1 si on autorise la suppression/modification du salon , 0 sinon
-};
+};*/
 
 /* CRÉATION DE L'UTILISATEUR */
 struct CLIENT* users;
@@ -99,24 +88,25 @@ int command_id(char* command){
 	return -1;
 }
 
-void supprimer_client(int i){
-	int found = 0;
+void supprimer_client(struct CLIENT *c){
 	int client_id = 0;
 
 	pthread_t thread_to_stop;
 
-	close(users[i].dSC);
-	printf("%s (client %d) est déconnecté\n", users[i].pseudo, i+1);
+	close(c->dSC);
+	printf("%s s'est déconnecté\n", c->pseudo);
 
-	memcpy(&thread_to_stop, &users[i].thread, sizeof(users[i].thread));
+	memcpy(&thread_to_stop, &c->thread, sizeof(c->thread));
 
 	int client_to_move_id = 0;
 	for(;client_id < nb_client; client_id++){
-		if(users[client_id].dSC == users[i].dSC){
+		if(users[client_id].dSC == c->dSC){
 			client_to_move_id = client_id;
        	}
 	}
+
 	for (; client_to_move_id <  nb_client; client_to_move_id++){
+		printstruct(users[client_to_move_id]);
 		memmove(&users[client_to_move_id], &users[client_to_move_id + 1], sizeof(users[client_to_move_id + 1]));
     }
 
@@ -129,11 +119,18 @@ void supprimer_client(int i){
 
 	printf("nb_client : %d\n", nb_client);
 
-	users = realloc(users, sizeof(CLIENT)*(nb_client+1));
+	if (nb_client > 0){
+		users = (CLIENT *) realloc(users, sizeof(CLIENT)*(nb_client));
+	} else {
+		free(users);
+	}
 	
 	pthread_cancel(thread_to_stop);
+	pthread_exit(NULL);
 }
 
+
+/* FONCTIONS SALON */
 int recherche_tab_salon(char nom_salon[]){
 	int tmp = 0;
 	while (tmp < nb_salon){
@@ -260,10 +257,14 @@ void *supprime_salon(char nom_salon[]){
 }
 
 /* FONCTION DE TRANSMISSION D'UN MESSAGE D'UN CLIENT VERS L'AUTRE */
-void *transmission(void *args){
+void *transmission(void* args){
 
 	/* NUMÉRO DU CLIENT QUI ENVOIE LE MESSAGE */
-	int i = (long) args;
+	int i = 0;
+
+	struct CLIENT *c = (CLIENT *) args;
+
+	printstruct(*c);
 
 	char message_recu[TMAX];
 
@@ -287,15 +288,16 @@ void *transmission(void *args){
 		char mot[TMAX] = "";
 
 		/* RECEPTION DU PSEUDO DU DESTINATAIRE */
-		int mes = recv(users[i].dSC, &message_recu, sizeof(message_recu), 0);
+		int mes = recv(c->dSC, &message_recu, sizeof(message_recu), 0);
 
 		if (mes<0){
+
 			perror("Erreur reception mot C1vC2\n");
 			pthread_exit(NULL);
 		}
 		if (mes==0){
 			perror("Socket fermée reception mot C1vC2\n");
-			supprimer_client(i);
+			supprimer_client(c);
 			pthread_exit(NULL);
 		}
 
@@ -343,7 +345,7 @@ void *transmission(void *args){
 						int dSC = users[pseudo_id].dSC;
 
 						/* ENVOIE DU PSEUDO AU DESTINATAIRE */
-						send(dSC, &users[i].pseudo, sizeof(users[i].pseudo), 0);
+						send(dSC, c->pseudo, sizeof(c->pseudo), 0);
 
 						/* ENVOIE DU MESSAGE DU CLIENT 1 VERS LE CLIENT 2*/
 						int mes = send(dSC, mot, sizeof(mot), 0);
@@ -367,7 +369,7 @@ void *transmission(void *args){
 					printf("Envoi du pseudo vers dSC : %d\n", users[clientID].dSC);
 
 					/* ENVOIE DU PSEUDO AU DESTINATAIRE */
-					send(dSC, &users[i].pseudo, sizeof(users[i].pseudo), 0);
+					send(dSC, c->pseudo, sizeof(c->pseudo), 0);
 
 					/* ENVOIE DU MESSAGE DU CLIENT 1 VERS LE CLIENT 2*/
 					int mes = send(dSC, mot, sizeof(mot), 0);
@@ -385,19 +387,21 @@ void *transmission(void *args){
 					printf("MESSAGE TRANSMIS\n\n");
 				} else {
 					/* ENVOIE PSEUDO À LA SOURCE */
-					send(users[i].dSC, "serveur", sizeof("serveur"), 0);
+					send(c->dSC, pseudo_serveur, sizeof(pseudo_serveur), 0);
 
 					char error[200] = "Message non distribué. L'utilisateur '";
 					strcat(error, pseudo);
 					strcat(error, "' n'est pas connecté.");
 
 					/* ENVOIE ERREUR À LA SOURCE */
-					send(users[i].dSC, error, sizeof(error), 0);
+					send(c->dSC, error, sizeof(error), 0);
 				}
 				break;
 
 			case 1:
-				send(users[i].dSC, "serveur", sizeof("serveur"), 0);
+				send(c->dSC, pseudo_serveur, sizeof(pseudo_serveur), 0);
+
+				printf("dSC : %d\n", c->dSC);
 
 				char pseudos[65000] = "[";
 
@@ -410,7 +414,7 @@ void *transmission(void *args){
 				}
 				pseudos[strlen(pseudos) - 1] = ' ';
 
-				send(users[i].dSC, &pseudos, sizeof(pseudos), 0);
+				send(c->dSC, &pseudos, sizeof(pseudos), 0);
 
 				clientID = -1;
 
@@ -418,7 +422,7 @@ void *transmission(void *args){
 				break;
 
 			case 2:
-				supprimer_client(i);
+				supprimer_client(c);
 				pthread_exit(NULL);
 				break;
 
@@ -455,7 +459,7 @@ void *transmission(void *args){
 					printf("Envoi du pseudo vers dSC : %d\n", users[clientID].dSC);
 
 					/* ENVOIE DU PSEUDO AU DESTINATAIRE */
-					send(dSC, &users[i].pseudo, sizeof(users[i].pseudo), 0);
+					send(dSC, c->pseudo, sizeof(c->pseudo), 0);
 
 					char message[TMAX] = "/file ";
 					strcat(message, file_name);
@@ -480,14 +484,14 @@ void *transmission(void *args){
 					printf("FICHIER TRANSMIS\n\n");
 				} else {
 					/* ENVOIE PSEUDO À LA SOURCE */
-					send(users[i].dSC, "serveur", sizeof("serveur"), 0);
+					send(c->dSC, pseudo_serveur, sizeof(pseudo_serveur), 0);
 
 					char error[200] = "Fichier non distribué. L'utilisateur '";
 					strcat(error, pseudo);
 					strcat(error, "' n'est pas connecté.");
 
 					/* ENVOIE ERREUR À LA SOURCE */
-					send(users[i].dSC, error, sizeof(error), 0);
+					send(c->dSC, error, sizeof(error), 0);
 
 					printf("ERREUR TRANSMISE\n\n");
 				}
@@ -497,7 +501,7 @@ void *transmission(void *args){
 			case 4:
 
 				/* ENVOIE PSEUDO A LA SOURCE */
-				send(users[i].dSC, "serveur", sizeof("serveur"), 0);
+				send(c->dSC, pseudo_serveur, sizeof(pseudo_serveur), 0);
 
 				/* RECUPERATION DU NOM DU FICHIER */
 				p = strtok(NULL, d);
@@ -516,7 +520,7 @@ void *transmission(void *args){
 
 					//printf("wshhhh 3\n");
 					//printf("size : %ld\n", strlen(file_list_to_send));
-					send(users[i].dSC, file_list_to_send, strlen(file_list_to_send), 0);
+					send(c->dSC, file_list_to_send, strlen(file_list_to_send), 0);
 
 					printf("LISTE FICHIER TRANSMISE\n\n");
 
@@ -554,7 +558,7 @@ void *transmission(void *args){
 						strcat(message, file_content);
 
 						/* ENVOIE DU MESSAGE */
-						int mes = send(users[i].dSC, message, strlen(message), 0);
+						int mes = send(c->dSC, message, strlen(message), 0);
 
 						/* GESTION DES ERREURS DE L'ENVOIE DU MESSAGE */
 						if (mes<0){
@@ -594,11 +598,11 @@ void *transmission(void *args){
 				nouveau_salon(pseudo,capa,third_arg,0);
 				memset (third_arg, 0, sizeof (third_arg));// Remise à 0 de third_arg
 
-    			rejoindre_salon(&users[i],pseudo);
+    			rejoindre_salon(c,pseudo);
 
-				int dSC = users[i].dSC;
+				int dSC = c->dSC;
 
-				send(dSC,"serveur", sizeof("serveur"), 0);
+				send(dSC, pseudo_serveur, sizeof(pseudo_serveur), 0);
 
 				/* ENVOIE DU MESSAGE DU CLIENT 1 VERS LE CLIENT 2*/
 				char creation_message[200] = "Votre salon a ete cree !\n";
@@ -614,7 +618,7 @@ void *transmission(void *args){
 				}
 				break; 
 			case 6 :
-				printf("Numéro du salon: %d \nNom du salon : %s\n",recherche_tab_salon(users[i].salon),salons[recherche_tab_salon(users[i].salon)].nom_salon);
+				printf("Numéro du salon: %d \nNom du salon : %s\n",recherche_tab_salon(c->salon),salons[recherche_tab_salon(c->salon)].nom_salon);
 				printf("%d clients sur %d dans %s\n",salons[0].nb_connecte,salons[0].capacite,salons[0].nom_salon);
 				break;
 			case 7 :
@@ -671,11 +675,11 @@ void *transmission(void *args){
 				
 				pseudo_id = 0;
 				for (;pseudo_id < nb_client;pseudo_id++){
-					if(strcmp(users[pseudo_id].salon,users[i].salon)==0){
+					if(strcmp(users[pseudo_id].salon,c->salon)==0){
 						int dSC = users[pseudo_id].dSC;
 
 						/* ENVOIE DU PSEUDO AU DESTINATAIRE */
-						send(dSC, &users[i].pseudo, sizeof(users[i].pseudo), 0);
+						send(dSC, c->pseudo, sizeof(c->pseudo), 0);
 
 						/* ENVOIE DU MESSAGE DU CLIENT 1 VERS LE CLIENT 2*/
 						int mes = send(dSC, mot, sizeof(mot), 0);
@@ -754,8 +758,10 @@ int main(int argc, char* argv[]){
 
 		dSC = accept(dSE, (struct sockaddr*) &aC, &lg);
 
-		if (nb_client > 1){
+		if (nb_client > 0){
 			users = (CLIENT *) realloc(users, sizeof(CLIENT)*(nb_client+1));
+		} else {
+			users = (CLIENT *) malloc(sizeof(CLIENT)*2);
 		}
 
 		/* CONNEXION AVEC UN CLIENT */
@@ -798,7 +804,7 @@ int main(int argc, char* argv[]){
 		pthread_join(users[nb_client].thread,NULL);
 
 		/* CREATION DES THREADS */
-		if( pthread_create(&users[nb_client].thread, NULL, transmission, (void *) (long) nb_client)){
+		if( pthread_create(&users[nb_client].thread, NULL, transmission, (void *) &users[nb_client])){
 			perror("Erreur à la création du thread de transmission entre le client 1 et le client 2 ");
 			return EXIT_FAILURE;
 		}
