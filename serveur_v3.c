@@ -1,31 +1,18 @@
-#include "serveur.h"
+#include "serveur_v3.h"
 #define TMAX 65000 /* TAILLE MAXIMALE D'UN MESSAGE EN OCTET */
 #define ALLOC 2
-#define NB_CLIENT_MAX
+#define NB_CLIENT_MAX 10
 
-const char pseudo_serveur[7] = "serveur";
 const char command_list[12][20] = {"/mp", "/whoishere", "/fin", "/file", "/getFile", "/newSalon", "/infoSalon", "/listSalon", "/modifSalon", "/salon", "/joinSalon", "/delSalon"};
 const char path_folder_serv[20] = "./file_on_serv/";
 const char path_folder_channel_list[20] = "channelList.txt";
+const char pseudo_serveur[9] = "serveur";
 
 /* STRUCTURE UTILISATEUR */ 
 typedef struct CLIENT CLIENT;
-/*struct CLIENT{
-    int dSC;
-    char pseudo[100];
-    pthread_t thread;
-    char salon[100];
-};*/
 
 /* STRUCTURE SALON */ 
 typedef struct SALON SALON;
-/*struct SALON {
-    char nom_salon[100];
-    char description[200];
-    int nb_connecte;
-    int capacite;
-    int admin; // 1 si on autorise la suppression/modification du salon , 0 sinon
-};*/
 
 /* CRÉATION DE L'UTILISATEUR */
 struct CLIENT* users;
@@ -42,26 +29,25 @@ int nb_salon = 0;
 /* DECLARATION DU SEMAPHORE */
 sem_t semaphore;
 
+char d[] = " ";
 /* DECLARATION DU MUTEX */
 
 /* DECLARATION DU SOCKET D'ECOUTE */
 int dSE;
 
 /* FONCTION DE RÉCUPÉRATION DES FICHIERS DU SERVEUR */
-const char* get_file(){
+void* get_file(char *file_list){
+	strcpy(file_list, "");
     struct dirent *dir;
-    char* file_list = "";
     DIR *d = opendir(path_folder_serv); 
     if (d){
         while ((dir = readdir(d)) != NULL)
         {  
-        	char list[TMAX];
             if(strcmp(dir->d_name,".")!=0  && strcmp(dir->d_name,"..") != 0){
-            	strcat(list, "[");
-            	strcat(list, dir->d_name);
-            	strcat(list, "] ");
+            	strcat(file_list, "[");
+            	strcat(file_list, dir->d_name);
+            	strcat(file_list, "] ");
             }
-            file_list = list;
         }
         if (strlen(file_list) == 0)
         {
@@ -71,7 +57,6 @@ const char* get_file(){
         }
         closedir(d);
     }
-    return file_list;
 }
 
 void printstruct(struct CLIENT c){
@@ -93,7 +78,7 @@ void supprimer_client(struct CLIENT *c){
 	int client_id = 0;
 
 	pthread_t thread_to_stop;
-
+	remove_from_salon(c,c->salon);
 	close(c->dSC);
 	printf("%s s'est déconnecté\n", c->pseudo);
 
@@ -132,16 +117,16 @@ void supprimer_client(struct CLIENT *c){
 
 
 /* FONCTIONS SALON */
-void save_salon(char nom_salon[]){
+void save_salon(char nom_salon_a_sauv[]){
 
 	FILE* fps = fopen(path_folder_channel_list, "a");
 
 	if (fps == NULL){
 		printf("Ne peux pas ouvrir le fichier à l'emplacement suivante : %s", path_folder_channel_list);
 	} else {
-		printf("Fichier %s modifié en ajoutant le salon : %s\n", path_folder_channel_list, nom_salon);
-		strcat(nom_salon, "\n");
-		fputs(nom_salon, fps);
+		printf("Fichier %s modifié en ajoutant le salon : %s\n", path_folder_channel_list, nom_salon_a_sauv);
+		strcat(nom_salon_a_sauv, "\n");
+		fputs(nom_salon_a_sauv, fps);
 	}
 	fclose(fps);
 
@@ -292,8 +277,8 @@ void *modif_salon(char salon_base[],char new_nom_salon[], int new_capa, char new
 		    }
 		    salons[nb_of_salon].capacite = tmp_capa;
 
-		    unsave_salon(char salon_base[]);
-		    save_salon(char new_nom_salon[]);
+		    unsave_salon(salon_base);
+		    save_salon(new_nom_salon);
 		}
 		/* SINON ON ENVOI UNE ERREUR */
 		else{
@@ -368,28 +353,26 @@ void *transmission(void* args){
 
 	struct CLIENT *c = (CLIENT *) args;
 
-	printstruct(*c);
-
 	char message_recu[TMAX];
-
-	char mot[TMAX];
-	char pseudo[100];
 	char command[100];
-	char third_arg[100];
-	char fourth_arg[100];
-	int fin = 0;
-	char d[] = " ";
-
+	char first_arg[TMAX];
+	char second_arg[TMAX];
+	char third_arg[TMAX];
+	char fourth_arg[TMAX];
 	char file_name[100];
-
 
 	int id_command;
 
 	/* BOUCLE TANT QUE LES MSG SONT DIFFÉRENTS DE "fin" */
 	while(1){
 
+		/*	REMISE A À DE TOUT LES ARGUMENTS */
+		memset (first_arg, 0, sizeof (first_arg));// Remise à 0 de first_arg
+		memset (second_arg, 0, sizeof (second_arg));// Remise à 0 de second_arg
+		memset (third_arg, 0, sizeof (third_arg));// Remise à 0 de third_arg
+		memset (fourth_arg, 0, sizeof (fourth_arg));// Remise à 0 de fourth_arg
+
 		int clientID = -1;
-		char mot[TMAX] = "";
 
 		/* RECEPTION DU PSEUDO DU DESTINATAIRE */
 		int mes = recv(c->dSC, &message_recu, sizeof(message_recu), 0);
@@ -423,25 +406,25 @@ void *transmission(void* args){
 
 				/* RECUPERATION DU PSEUDO DU DESTINATAIRE */
 				p = strtok(NULL, d);
-				strcpy(pseudo, p);
+				strcpy(second_arg, p);
 
 				/* RECUPERATION DU MESSAGE SAISIE */
 				p = strtok(NULL, d);
 				while(p != NULL)
 				{
-					strcat(mot, p);
-					strcat(mot, " ");
+					strcat(first_arg, p);
+					strcat(first_arg, " ");
 				    p = strtok(NULL, d);
 				}
 				
 				int pseudo_id = 0;
 				for (;pseudo_id < nb_client;++pseudo_id){
-					if(strcmp(users[pseudo_id].pseudo, pseudo)==0){
+					if(strcmp(users[pseudo_id].pseudo, second_arg)==0){
 						clientID = pseudo_id;
 					}
 				}
 				/* SI LE PSEUDO RECU EST "all" (ON ENVOI LE MESSAGE À TOUT LES CLIENTS) */
-				if(strcmp(pseudo,"all")==0){
+				if(strcmp(second_arg,"all")==0){
 
 					pseudo_id = 0;
 					for (;pseudo_id < nb_client;pseudo_id++){
@@ -452,7 +435,7 @@ void *transmission(void* args){
 						send(dSC, c->pseudo, sizeof(c->pseudo), 0);
 
 						/* ENVOIE DU MESSAGE DU CLIENT 1 VERS LE CLIENT 2*/
-						int mes = send(dSC, mot, sizeof(mot), 0);
+						int mes = send(dSC, first_arg, sizeof(first_arg), 0);
 
 						/* GESTION DES ERREURS DE L'ENVOIE DU MESSAGE */
 						if (mes<0){
@@ -476,7 +459,7 @@ void *transmission(void* args){
 					send(dSC, c->pseudo, sizeof(c->pseudo), 0);
 
 					/* ENVOIE DU MESSAGE DU CLIENT 1 VERS LE CLIENT 2*/
-					int mes = send(dSC, mot, sizeof(mot), 0);
+					int mes = send(dSC, first_arg, sizeof(first_arg), 0);
 
 					/* GESTION DES ERREURS DE L'ENVOIE DU MESSAGE */
 					if (mes<0){
@@ -494,7 +477,7 @@ void *transmission(void* args){
 
 					send(c->dSC, pseudo_serveur, sizeof(pseudo_serveur), 0);
 					char error[200] = "Message non distribué. L'utilisateur '";
-					strcat(error, pseudo);
+					strcat(error, second_arg);
 					strcat(error, "' n'est pas connecté.");
 
 					/* ENVOIE ERREUR À LA SOURCE */
@@ -527,6 +510,7 @@ void *transmission(void* args){
 				break;
 
 			case 2:
+				remove_from_salon(c,c->salon);
 				supprimer_client(c);
 				pthread_exit(NULL);
 				break;
@@ -535,24 +519,24 @@ void *transmission(void* args){
 
 				/* RECUPERATION DU PSEUDO DU DESTINATAIRE */
 				p = strtok(NULL, d);
-				strcpy(pseudo, p);
+				strcpy(first_arg, p);
 
 				/* RECUPERATION DU NOM DU FICHIER */
 				p = strtok(NULL, d);
-				strcpy(file_name, p);
+				strcpy(second_arg, p);
 
 				/* RECUPERATION DU CONTENU DU FICHIER */
 				p = strtok(NULL, d);
 				while(p != NULL)
 				{
-					strcat(mot, p);
-					strcat(mot, " ");
+					strcat(third_arg, p);
+					strcat(third_arg, " ");
 				    p = strtok(NULL, d);
 				}
 
 				pseudo_id = 0;
 				for (;pseudo_id < nb_client;++pseudo_id){
-					if(strcmp(users[pseudo_id].pseudo, pseudo)==0){
+					if(strcmp(users[pseudo_id].pseudo, second_arg)==0){
 						clientID = pseudo_id;
 					}
 				}
@@ -566,15 +550,15 @@ void *transmission(void* args){
 					/* ENVOIE DU PSEUDO AU DESTINATAIRE */
 					send(dSC, c->pseudo, sizeof(c->pseudo), 0);
 
-					char message[TMAX] = "/file ";
-					strcat(message, file_name);
-					strcat(message, " ");
-					strcat(message, mot);
+					strcpy(fourth_arg,"/file ");
+					strcat(fourth_arg, second_arg);
+					strcat(fourth_arg, " ");
+					strcat(fourth_arg, third_arg);
 
-					printf("message : %s\n", message);
+					printf("message : %s\n", fourth_arg);
 
 					/* ENVOIE DU MESSAGE DU CLIENT 1 VERS LE CLIENT 2*/
-					int mes = send(dSC, message, sizeof(message), 0);
+					int mes = send(dSC, fourth_arg, sizeof(fourth_arg), 0);
 
 					/* GESTION DES ERREURS DE L'ENVOIE DU MESSAGE */
 					if (mes<0){
@@ -592,7 +576,7 @@ void *transmission(void* args){
 					send(c->dSC, pseudo_serveur, sizeof(pseudo_serveur), 0);
 
 					char error[200] = "Fichier non distribué. L'utilisateur '";
-					strcat(error, pseudo);
+					strcat(error, first_arg);
 					strcat(error, "' n'est pas connecté.");
 
 					/* ENVOIE ERREUR À LA SOURCE */
@@ -617,19 +601,13 @@ void *transmission(void* args){
 					/* ENVOIE LISTE DES FICHIERS A LA SOURCE */
 					char file_list_to_send[TMAX];
 
-					strcpy(file_list_to_send, get_file());
+					get_file(file_list_to_send);
 
-					//printf("wshhhh 2\n");
-					//printf("file_list : %s\n", file_list_to_send);
-
-					//printf("wshhhh 3\n");
-					//printf("size : %ld\n", strlen(file_list_to_send));
-					send(c->dSC, file_list_to_send, strlen(file_list_to_send), 0);
+					send(c->dSC, file_list_to_send, sizeof(file_list_to_send), 0);
 
 					printf("LISTE FICHIER TRANSMISE\n\n");
 
 				} else {
-					char file_name[100];
 					strcpy(file_name, p);
 					strtok(file_name, "\n");
 					printf("file_name : %s\n", file_name);
@@ -655,14 +633,14 @@ void *transmission(void* args){
 						file_content[strlen(file_content)-1] = '\0';
 
 						char message[TMAX] = "/file ";
-						strcat(message, pseudo);
+						strcat(message, second_arg);
 						strcat(message, " ");
 						strcat(message, file_name);
 						strcat(message, " ");
 						strcat(message, file_content);
 
 						/* ENVOIE DU MESSAGE */
-						int mes = send(c->dSC, message, strlen(message), 0);
+						int mes = send(c->dSC, message, sizeof(message), 0);
 
 						/* GESTION DES ERREURS DE L'ENVOIE DU MESSAGE */
 						if (mes<0){
@@ -681,16 +659,16 @@ void *transmission(void* args){
 
 			case 5 : // CREER UN NOUVEAU SALON
 
-				/* RECUPERATION DU NOM DU SALON */
+				/* RECUPERATION DU NOM DU SALON (arg 2)*/
 				p = strtok(NULL, d);
-				strcpy(pseudo, p);	
+				strcpy(first_arg, p);	
 
-				/* RECUPERATION DE LA CAPACITE DU SALON */
+				/* RECUPERATION DE LA CAPACITE DU SALON (arg 2) */
 				p = strtok(NULL, d);
-				strcpy(mot, p);
-				int capa = atoi(mot);
+				strcpy(second_arg, p);
+				int capa = atoi(second_arg);
 
-				/* RECUPERATION DE LA DESCRIPTION DU SALON */
+				/* RECUPERATION DE LA DESCRIPTION DU SALON (arg 3) */
 				p = strtok(NULL, d);
 				while(p != NULL)
 				{
@@ -699,21 +677,22 @@ void *transmission(void* args){
 				    p = strtok(NULL, d);
 				}
 				third_arg [strlen(third_arg)-1] = 0;
+				/* ON CREE LE NOUVEAU SALON */
+				nouveau_salon(first_arg,capa,third_arg,1);
 
-				nouveau_salon(pseudo,capa,third_arg,1);
-				memset (third_arg, 0, sizeof (third_arg));// Remise à 0 de third_arg
+				/* ON ENREGISTRE LE NOUVEAU SALON */
+				save_salon(first_arg);
 
-				save_salon(pseudo);
-
-    			rejoindre_salon(c,pseudo);
+				/* ON REJOINT LE NOUVEAU SALON */
+    			rejoindre_salon(c,first_arg);
 
 				int dSC = c->dSC;
 
 				send(dSC, pseudo_serveur, sizeof(pseudo_serveur), 0);
 
 				/* ENVOIE DU MESSAGE DU CLIENT 1 VERS LE CLIENT 2*/
-				char creation_message[200] = "Votre salon a ete cree !\n";
-				int mes = send(dSC, creation_message, strlen(creation_message)*sizeof(char), 0);
+				strcat(fourth_arg,"Votre salon a ete cree !\n");
+				int mes = send(c->dSC, fourth_arg, sizeof(fourth_arg), 0);
 
 				/* GESTION DES ERREURS DE L'ENVOIE DU MESSAGE */
 				if (mes<0){
@@ -730,33 +709,30 @@ void *transmission(void* args){
 				printf("%d clients sur %d dans %s\n",salons[0].nb_connecte,salons[0].capacite,salons[0].nom_salon);
 				break;
 			case 7:
-				strcpy(pseudos,"Serveur");
+				strcpy(second_arg,"\n");
 				for(int j=0; j<nb_salon; j++){
-					char buffer[100];
-					sprintf(buffer, "%d", j);
-			    	strcat( mot, buffer);
-			    	strcat( mot, " - ");
-			    	strcat( mot, salons[j].nom_salon);
-			    	strcat( mot, " [");
-			    	strcat( mot, salons[j].description);
-			    	strcat( mot, "] ");
-			    	memset (buffer, 0, sizeof (buffer));
-			    	sprintf(buffer, "%d", salons[j].nb_connecte);
-			    	strcat( mot, buffer);
-			    	strcat( mot, "/");
-			    	memset (buffer, 0, sizeof (buffer));
-			    	sprintf(buffer, "%d", salons[j].capacite);
-			    	strcat( mot, buffer);
-			    	strcat( mot, "\n");
+					sprintf(second_arg, "%d", j);
+			    	strcat(first_arg, second_arg);
+			    	strcat(first_arg, " - ");
+			    	strcat(first_arg, salons[j].nom_salon);
+			    	strcat(first_arg, " [");
+			    	strcat(first_arg, salons[j].description);
+			    	strcat(first_arg, "] ");
+			    	memset (second_arg, 0, sizeof (second_arg));
+			    	sprintf(second_arg, "%d", salons[j].nb_connecte);
+			    	strcat(first_arg, second_arg);
+			    	strcat(first_arg, "/");
+			    	memset (second_arg, 0, sizeof (second_arg));
+			    	sprintf(second_arg, "%d", salons[j].capacite);
+			    	strcat(first_arg, second_arg);
+			    	strcat(first_arg, "\n");
 					
 				}
-				printf("%s",mot);
 
 				/* ENVOIE DU PSEUDO */
-				send(c->dSC, &pseudos, strlen(pseudos)*sizeof(char), 0);
+				send(c->dSC, pseudo_serveur, sizeof(pseudo_serveur), 0);
 				/* ENVOIE DU MESSAGE */
-				mes = send(c->dSC, &mot, strlen(mot)*sizeof(char), 0); 
-				memset (mot, 0, sizeof (mot));
+				mes = send(c->dSC, first_arg, sizeof(first_arg), 0); 
 
 				/* GESTION DES ERREURS DE L'ENVOIE DU MESSAGE */
 				if (mes<0){
@@ -767,16 +743,17 @@ void *transmission(void* args){
 					perror("Socket fermée envoie fichier\n");
 					pthread_exit(NULL);
 				}
+				printf("SUPPRESSION EFFECTUE\n\n");
 				break;
 
 			case 8 : /* MODIFIER LE SALON VOULU avec /modifSalon */
 				/* RECUPERATION DU NOM DU SALON */
 				p = strtok(NULL, d);
-				strcpy(pseudo, p);
+				strcpy(first_arg, p);
 
-				/* RECUPERATION DU NOM DU SALON */
+				/* RECUPERATION DU NOUVEAU NOM DE SALON */
 				p = strtok(NULL, d);
-				strcpy(mot, p);		
+				strcpy(second_arg, p);		
 
 				/* RECUPERATION DU NOM DU SALON */
 				p = strtok(NULL, d);
@@ -791,17 +768,18 @@ void *transmission(void* args){
 					strcat(fourth_arg, " ");
 				    p = strtok(NULL, d);
 				}
-				modif_salon(pseudo,mot,capa,fourth_arg);
+
+				modif_salon(first_arg,second_arg,capa,fourth_arg);
 				strcpy(fourth_arg,"\0");
 				break;
 			case 9 : /* ENVOYER UN MESSAGE A QUELQU'UN DE SON SALON AVEC /salon */
+
 				/* RECUPERATION DU MESSAGE SAISIE */
-				memset (mot, 0, sizeof (mot));
 				p = strtok(NULL, d);
 				while(p != NULL)
 				{
-					strcat(mot, p);
-					strcat(mot, " ");
+					strcat(first_arg, p);
+					strcat(first_arg, " ");
 				    p = strtok(NULL, d);
 				}
 				
@@ -814,7 +792,7 @@ void *transmission(void* args){
 						send(dSC, c->pseudo, sizeof(c->pseudo), 0);
 
 						/* ENVOIE DU MESSAGE DU CLIENT 1 VERS LE CLIENT 2*/
-						int mes = send(dSC, mot, strlen(mot)*sizeof(char), 0);
+						int mes = send(dSC, first_arg, sizeof(first_arg), 0);
 
 						/* GESTION DES ERREURS DE L'ENVOIE DU MESSAGE */
 						if (mes<0){
@@ -830,20 +808,21 @@ void *transmission(void* args){
 				}
 				break;
 			case 10: /* REJOINDRE UN DE SON SALON AVEC /joinSalon */
-				dSC = c->dSC;
-
 				/* RECUPERATION DU NOM DU SALON */
 				p = strtok(NULL, d);
-				strcpy(pseudo, p);
+				strcpy(first_arg, p);
 
-				rejoindre_salon(c ,pseudo);
+				rejoindre_salon(c,first_arg);
 
 				/* CREATION DU MESSAGE A ENVOYER*/
-				strcpy(mot, "Vous avez rejoint le salon ");
-				strcat(mot, pseudo);
+				strcpy(second_arg, "Vous avez rejoint le salon ");
+				strcat(second_arg, first_arg);
 
-				send(dSC, "Serveur",strlen("Serveur")*sizeof(char), 0);
-				mes = send(dSC,&mot,strlen(mot)*sizeof(char), 0);
+				/* ENVOIE DU PSEUDO */
+				send(c->dSC, pseudo_serveur, sizeof(pseudo_serveur), 0);
+				/* ENVOIE DU MESSAGE */
+				mes = send(c->dSC, second_arg, sizeof(second_arg), 0); 
+
 				if (mes<0){
 					perror("Erreur transmission mot C1vC2\n");
 					pthread_exit(NULL);
@@ -856,14 +835,13 @@ void *transmission(void* args){
 			case 11:
 				/* RECUPERATION DU NOM DU SALON */
 				p = strtok(NULL, d);
-				strcpy(pseudo, p);
-
-				supprime_salon(pseudo);
+				strcpy(first_arg, p);
+				supprime_salon(first_arg);
 				printf("SUPPRESSION EFFECTUE\n\n");
 
 				break;
-			default :
-				printf("default statement\n");
+			default:
+				printf(" ");
 		}
 		
 	}
@@ -902,9 +880,6 @@ void init_salon(){
 			nb_channel++;
 		}
 
-		printf("A la boucle\n");
-		printf("size of : %ld\n", sizeof(channel_list)/sizeof(channel_list[0]));
-
 		/* CREATION DES SALONS */
 		int id_channel = 0;
 		for(;id_channel < nb_channel;id_channel++){
@@ -917,7 +892,7 @@ void init_salon(){
 int main(int argc, char* argv[]){
 
 	/* INITIALISATION DU SÉMAPHORE  */
-	int sem = sem_init(&semaphore, 0, 10);
+	int sem = sem_init(&semaphore, 0, NB_CLIENT_MAX);
 	if(sem == -1){
 	    perror("Problème à l'intitialisation du sémaphore ");
 	}
