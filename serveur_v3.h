@@ -37,7 +37,7 @@ int main(int argc, char* argv[]);
 void supprimer_client(struct CLIENT *c);
 
 /* FILES METHODS */
-const char* get_file();
+void* get_file();
 
 /* ROOMS METHODS */
 int recherche_tab_salon(char nom_salon[]);

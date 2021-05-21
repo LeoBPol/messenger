@@ -21,6 +21,10 @@ int dS;
 /* DERNIER PSEUDO (pour affichage) */
 char last_pseudo[100];
 
+/* DÉCLARATION DES THREADS */
+pthread_t threadR; /* RECEPTION */
+pthread_t threadS; /* ENVOIE */
+
 /* FONCTION DE SAISIE DE MESSAGES A ENVOYER */
 void saisie(char *mot){
 	printf("\nEcrivez votre message\n");
@@ -150,10 +154,21 @@ void *recoie(void* args){
 		char char_nb_octets[10];
 
 		/* RECEPTION DU PSEUDO DU CLIENT */
-		recv(dS, &pseudoOther, sizeof(pseudoOther), 0);
+		int mes = recv(dS, pseudoOther, sizeof(pseudoOther), 0);
+
+		/* GESTION DES ERREURS DE LA RECEPTION DU PSEUDO */
+		if (mes<0){
+			perror("Erreur reception mot\n");
+			pthread_exit(NULL);
+		}
+		if (mes==0){
+			printf("Le serveur a été coupé\n");
+			pthread_cancel(threadS);
+			pthread_exit(NULL);
+		}
 
 		/* RECEPTION DU MESSAGE */
-		int mes = recv(dS, &mot, sizeof(mot), 0); 
+		mes = recv(dS, &mot, sizeof(mot), 0); 
 
 		/* GESTION DES ERREURS DE LA RECEPTION DU MESSAGE */
 		if (mes<0){
@@ -161,7 +176,8 @@ void *recoie(void* args){
 			pthread_exit(NULL);
 		}
 		if (mes==0){
-			perror("Socket fermée reception mot\n");
+			printf("Le serveur a été coupé\n");
+			pthread_cancel(threadS);
 			pthread_exit(NULL);
 		}
 
@@ -273,10 +289,6 @@ int main(int argc, char* argv[]){
 
 	/* ENVOIE DU PSEUDO AU SERVEUR */
 	send(dS, pseudo, sizeof(pseudo), 0);
-
-	/* DÉCLARATION DES THREADS */
-	pthread_t threadR; /* RECEPTION */
-	pthread_t threadS; /* ENVOIE */
 
 	printf("Debut de la discussion\n");
 
