@@ -29,6 +29,7 @@ struct SALON {
 };
 
 /* GENERAL METHODS */
+int envoi(int socket, char* buffer);
 int command_id(char* command);
 void *transmission(void *args);
 int main(int argc, char* argv[]);

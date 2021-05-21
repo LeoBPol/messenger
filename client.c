@@ -139,7 +139,7 @@ void *envoie(void *args){
 /* FONCTION DE RECEPTION DE MESSAGES */
 void *recoie(void* args){
 
-	char pseudoOther[100];
+	//char pseudoOther[100];
 
 	char mot[TMAX];
 	char mot_to_print[TMAX];
@@ -151,12 +151,12 @@ void *recoie(void* args){
 
 		char mot[TMAX] = "";
 
-		char char_nb_octets[10];
+		//char char_nb_octets[10];
 
 		/* RECEPTION DU PSEUDO DU CLIENT */
-		int mes = recv(dS, pseudoOther, sizeof(pseudoOther), 0);
+		/*int mes = recv(dS, pseudoOther, sizeof(pseudoOther), 0);
 
-		/* GESTION DES ERREURS DE LA RECEPTION DU PSEUDO */
+		/* GESTION DES ERREURS DE LA RECEPTION DU PSEUDO 
 		if (mes<0){
 			perror("Erreur reception mot\n");
 			pthread_exit(NULL);
@@ -165,10 +165,10 @@ void *recoie(void* args){
 			printf("Le serveur a été coupé\n");
 			pthread_cancel(threadS);
 			pthread_exit(NULL);
-		}
+		}/*
 
 		/* RECEPTION DU MESSAGE */
-		mes = recv(dS, &mot, sizeof(mot), 0); 
+		int mes = recv(dS, mot, sizeof(mot), 0);
 
 		/* GESTION DES ERREURS DE LA RECEPTION DU MESSAGE */
 		if (mes<0){
@@ -186,6 +186,10 @@ void *recoie(void* args){
 
 		if(strcmp(mot,"")!=0){
 			if(strcmp(recv,"/file")==0){
+
+				char pseudoOther[100];
+				recv = strtok(NULL, d);
+				strcpy(pseudoOther, recv);
 
 				char file_name[100];
 				recv = strtok(NULL, d);
@@ -230,9 +234,9 @@ void *recoie(void* args){
 				printf( "%c[2K", ASCII_ESC );
 				printf( "%c[A", ASCII_ESC );
 				puts("\033[1m");
-				if (strcmp(pseudoOther,"")!=0)
+				if (strcmp(mot_to_print,"")!=0)
 				{
-					printf("%s : %s", pseudoOther, mot_to_print);
+					printf("%s", mot_to_print);
 				}
 				puts("\033[0m");
 			}
