@@ -4,8 +4,9 @@
 #define NB_CLIENT_MAX 10
 
 const char command_list[12][20] = {"/mp", "/whoishere", "/fin", "/file", "/getFile", "/newSalon", "/infoSalon", "/listSalon", "/modifSalon", "/salon", "/joinSalon", "/delSalon"};
-const char path_folder_serv[20] = "./file_on_serv/";
-const char path_folder_channel_list[20] = "channelList.txt";
+const char path_folder_serv[30] = "serveur_config/file_on_serv/";
+const char path_folder_channel_list[40] = "serveur_config/channelList.txt";
+const char path_folder_channel_messages[20] = "serveur_config/";
 const char pseudo_serveur[10] = "[SERVEUR]";
 
 /* STRUCTURE UTILISATEUR */ 
@@ -170,6 +171,97 @@ void unsave_salon(char nom_salon[]){
  			fputs("\n", fps);
 		}
 		printf("Fichier %s modifié en supprimant le salon : %s\n", path_folder_channel_list, nom_salon);
+	}
+	fclose(fps);
+}
+
+void save_last_messages(char last_message[], char nom_salon[]){
+	char d[] = "\n";
+	char *message_list[10];
+	int nb_message = 0;
+	char file_name[300];
+	strcpy(file_name, path_folder_channel_messages);
+	strcat(file_name, nom_salon);
+	strcat(file_name, ".txt");
+
+	printf("file_name : %s\n", file_name);
+
+	FILE* fps = fopen(file_name, "r");
+
+	if (fps == NULL){
+		//printf("Ne peux pas ourvrir le fichier à l'emplacement suivante : %s", file_name);
+		fps = fopen(file_name, "w");
+		fputs(last_message, fps);
+ 		fputs("\n", fps);
+		printf("Fichier %s modifié en ajoutant le message : %s\n", file_name, last_message);
+	} else {
+		char file_content[TMAX] = "";
+		char str[1000] = "";
+
+		/*RECUPERER LE CONTENU DU FICHIER*/
+		while (fgets(str, 1000, fps) != NULL) {
+			strcat(file_content, str);
+		}
+
+		char *p = strtok(file_content, d);
+		while(p != NULL){
+			message_list[nb_message] = p;
+			nb_message++;
+			p = strtok(NULL, d);
+		}
+
+		fps = freopen(file_name, "w", fps);
+
+		/* REENREGISTREMENT DES MESSAGES */
+		int id_message = 0;
+		if(nb_message == 10){	
+			id_message = 1;
+		} 
+		
+		for(;id_message < nb_message;id_message++){
+			printf("message_list[%d] : %s\n", id_message, message_list[id_message]);
+ 			fputs(message_list[id_message], fps);
+ 			fputs("\n", fps);
+		}
+		fputs(last_message, fps);
+ 		fputs("\n", fps);
+		printf("Fichier %s modifié en ajoutant le message : %s\n", file_name, last_message);
+	}
+	fclose(fps);
+}
+
+void get_last_messages(char* last_messages[], char nom_salon[]){
+	char d[] = "\n";
+	int nb_message = 0;
+	char file_name[300];
+	strcpy(file_name, path_folder_channel_messages);
+	strcat(file_name, nom_salon);
+	strcat(file_name, ".txt");
+
+	printf("file_name : %s\n", file_name);
+
+	FILE* fps = fopen(file_name, "r");
+
+	if (fps == NULL){
+		printf("Ne peux pas ourvrir le fichier à l'emplacement suivante : %s", file_name);
+	} else {
+		char file_content[TMAX] = "";
+		char str[1000] = "";
+
+		/*RECUPERER LE CONTENU DU FICHIER*/
+		while (fgets(str, 1000, fps) != NULL) {
+			strcat(file_content, str);
+		}
+
+		char *p = strtok(file_content, d);
+		while(p != NULL){
+			last_messages[nb_message] = p;
+			printf("last_messages[%d] : %s\n", nb_message, last_messages[nb_message]);
+			nb_message++;
+			p = strtok(NULL, d);
+		}
+
+		printf("Fichier %s ouvert\n", file_name);
 	}
 	fclose(fps);
 }
@@ -349,7 +441,7 @@ int envoi(int socket, char* buffer) {
 
 	int mes;
 	//Envoi du message
-	printf("BUFFER : %s",buffer);
+	printf("BUFFER : %s\n",buffer);
 	mes = send(socket, buffer, (strlen(buffer)+1)*sizeof(char), 0);
 	if (mes == -1){
 		perror("Erreur envoie\n");
@@ -780,6 +872,17 @@ void *transmission(void* args){
 				strcat(buffer, third_arg);
 				strcat(buffer, " dans ");
 				strcat(buffer, salons[id_salon].nom_salon);
+				strcat(buffer, "\n[ 10 DERNIERS MESSAGES DANS LE SALON ]\n");
+
+				char* last_messages[10];
+				get_last_messages(last_messages, salons[id_salon].nom_salon);
+
+				int i = 0;
+				while(i < 10 && strcmp(last_messages[i], "") != 0){
+					strcat(buffer, last_messages[i]);
+					strcat(buffer, "\n");
+					i++;
+				}
 
 				mes = envoi(c->dSC, buffer);
 
@@ -917,6 +1020,9 @@ void *transmission(void* args){
 					}
 					
 				}
+				printf("laaaaaaaaaaaa\n");
+				save_last_messages(buffer, c->salon);
+
 				break;
 			
 			case 10: /* REJOINDRE UN DE SON SALON AVEC /joinSalon */
@@ -982,6 +1088,8 @@ void *transmission(void* args){
 }
 
 void init_salon(){
+
+	printf("dans le init\n");
 
 	char d[] = "\n";
 	char *channel_list[10];

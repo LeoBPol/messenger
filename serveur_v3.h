@@ -45,6 +45,8 @@ int recherche_tab_salon(char nom_salon[]);
 void init_salon();
 void save_salon(char nom_salon[]);
 void unsave_salon(char nom_salon[]);
+void save_last_messages(char last_message[], char nom_salon[]);
+void get_last_messages(char* last_messages[], char nom_salon[]);
 void *add_to_salon(struct CLIENT *c, char nom_salon[]);
 void *remove_from_salon(struct CLIENT *c, char nom_salon[]);
 void *nouveau_salon(char nom_salon[], int capa, char description[],int admin);

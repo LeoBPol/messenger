@@ -227,7 +227,6 @@ void *recoie(void* args){
 				fclose(fps);
 			} else {
 
-				printf("wshhhh 3\n");
 				/* AFFICHAGE DU MESSAGE RECU */
 				printf( "%c[2K", ASCII_ESC );
 				printf( "%c[A", ASCII_ESC );
