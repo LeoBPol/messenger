@@ -514,6 +514,7 @@ void *transmission(void* args){
 
 		/*	REMISE A À DE TOUT LES ARGUMENTS */
 		strcpy (first_arg, "");// Remise à 0 de first_arg
+		strcpy (message_recu, "");// Remise à 0 de first_arg
 
 		int clientID = -1;
 
@@ -531,15 +532,17 @@ void *transmission(void* args){
 			pthread_exit(NULL);
 		}
 
-		printf("message : %s", message_recu);
-		strtok(message_recu, "\n");
+		if(strcmp(message_recu, "")!=0){
+			printf("message : %s", message_recu);
+			strtok(message_recu, "\n");
+		}
 
 		/* RECUPERATION DE LA COMMANDE SAISIE */
 		char *p = strtok(message_recu, d);
-		strtolower(p);
 		if (p == NULL){
 			strcpy(command, message_recu);
 		} else {
+			strtolower(p);
 			strcpy(command, p);
 		}
 		
@@ -644,11 +647,11 @@ void *transmission(void* args){
 			case 1: /* LISTE LES PERSONNES PRESENTES DANS LE SERVEUR AVEC /whoishere */
 
 				/* ENVOIE DES PSEUDOS AU CLIENT */
-				strcpy(second_arg, "");
+				strcpy(second_arg, "[");
 				pseudo_id = 0;
 				for (;pseudo_id < nb_client;pseudo_id++){
-					//strcpy(temp_pseudo, users[pseudo_id].pseudo);
-					strcat(second_arg, strcat(users[pseudo_id].pseudo, "] [")); 
+					strcpy(third_arg, users[pseudo_id].pseudo);
+					strcat(second_arg, strcat(third_arg, "] [")); 
 				}
 				second_arg[strlen(second_arg) - 1] = ' ';
 
