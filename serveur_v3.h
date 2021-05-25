@@ -11,6 +11,7 @@
 #include <signal.h>
 #include <semaphore.h>
 #include <dirent.h>
+#include <ctype.h>
 #define SERVEUR_H
 
 struct CLIENT{
@@ -33,6 +34,7 @@ int envoi(int socket, char* buffer);
 int command_id(char* command);
 void *transmission(void *args);
 int main(int argc, char* argv[]);
+void open_readme();
 
 /* USERS METHODS */
 void supprimer_client(struct CLIENT *c);

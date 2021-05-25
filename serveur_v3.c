@@ -3,10 +3,11 @@
 #define ALLOC 2
 #define NB_CLIENT_MAX 10
 
-const char command_list[12][20] = {"/mp", "/whoishere", "/fin", "/file", "/getFile", "/newSalon", "/infoSalon", "/listSalon", "/modifSalon", "/salon", "/joinSalon", "/delSalon"};
+const char command_list[13][20] = {"/mp", "/whoishere", "/fin", "/file", "/getfile", "/newsalon", "/infosalon", "/listsalon", "/modifsalon", "/salon", "/joinsalon", "/delsalon", "/man"};
 const char path_folder_serv[30] = "serveur_config/file_on_serv/";
 const char path_folder_channel_list[40] = "serveur_config/channelList.txt";
 const char path_folder_channel_messages[20] = "serveur_config/";
+const char path_folder_readme[40] = "serveur_config/readme.txt";
 const char pseudo_serveur[10] = "[SERVEUR]";
 
 /* STRUCTURE UTILISATEUR */ 
@@ -35,6 +36,38 @@ char d[] = " ";
 
 /* DECLARATION DU SOCKET D'ECOUTE */
 int dSE;
+
+
+void * strtolower(char * src) {
+	const char * dest = src; 
+    char * result = src;
+    while( *src++ = tolower( *dest++ ) );
+    return result;
+}
+
+void open_readme(char file_content[]){
+	char file_name[300];
+	strcpy(file_name, path_folder_readme);
+	strcpy(file_content, "");
+
+	printf("file_name : %s\n", file_name);
+
+	FILE* fps = fopen(file_name, "r");
+
+	if (fps == NULL){
+		printf("Ne peux pas ourvrir le fichier à l'emplacement suivante : %s", file_name);
+	} else {
+		char str[1000] = "";
+
+		/*RECUPERER LE CONTENU DU FICHIER*/
+		while (fgets(str, 1000, fps) != NULL) {
+			strcat(file_content, str);
+		}
+
+		printf("Fichier %s ouvert\n", file_name);
+	}
+	fclose(fps);
+}
 
 /* FONCTION DE RÉCUPÉRATION DES FICHIERS DU SERVEUR */
 void* get_file(char *file_list){
@@ -503,6 +536,7 @@ void *transmission(void* args){
 
 		/* RECUPERATION DE LA COMMANDE SAISIE */
 		char *p = strtok(message_recu, d);
+		strtolower(p);
 		if (p == NULL){
 			strcpy(command, message_recu);
 		} else {
@@ -512,7 +546,7 @@ void *transmission(void* args){
 		id_command = command_id(command);
 
 		switch (id_command){
-			case 0:
+			case 0: /* ENVOI D'UN MESSAGE A UN OU PLUSIEURS DESTINATAIRES AVEC /mp pseudo message */
 
 				/* RECUPERATION DU PSEUDO DU DESTINATAIRE */
 				p = strtok(NULL, d);
@@ -607,7 +641,7 @@ void *transmission(void* args){
 				}
 				break;
 
-			case 1:
+			case 1: /* LISTE LES PERSONNES PRESENTES DANS LE SERVEUR AVEC /whoishere */
 
 				/* ENVOIE DES PSEUDOS AU CLIENT */
 				strcpy(second_arg, "");
@@ -640,13 +674,13 @@ void *transmission(void* args){
 				printf("LISTE PSEUDO TRANSMISE\n\n");
 				break;
 
-			case 2:
+			case 2: /* COUPE LA CONNEXION DU CLIENT QUI LE DEMANDE AVEC /fin */
 				remove_from_salon(c,c->salon);
 				supprimer_client(c);
 				pthread_exit(NULL);
 				break;
 
-			case 3:
+			case 3: /* TRANSMET LE FICHIER DE LA SOURCE VERS LE DESTINATAIRE AVEC /file */
 
 				/* RECUPERATION DU PSEUDO DU DESTINATAIRE */
 				p = strtok(NULL, d);
@@ -720,7 +754,8 @@ void *transmission(void* args){
 
 				break;
 
-			case 4:
+			case 4: /* TRANSMET LA LISTE DES FICHIERS VERS LE DEMANDEUR AVEC LA COMANDE /getfile 
+				ET LE FICHIER VERS LE DEMANDEUR AVEC /getFile nomfichier */
 				/* RECUPERATION DU NOM DU FICHIER */
 				p = strtok(NULL, d);
 
@@ -797,7 +832,7 @@ void *transmission(void* args){
 				}
 				break;
 
-			case 5: // CREER UN NOUVEAU SALON
+			case 5: /* CREER UN NOUVEAU SALON AVEC /newSalon nomsalon capacite description */
 
 				/* RECUPERATION DU NOM DU SALON (arg 1)*/
 				p = strtok(NULL, d);
@@ -850,7 +885,7 @@ void *transmission(void* args){
 				}
 				break; 
 			
-			case 6:
+			case 6: /* DONNE TOUTE INFOS SUR LE SALON EN QUESTION AINSI QUE LES 10 DERNIERS MESSAGES AVEC /salonInfo */
 
 				id_salon = recherche_tab_salon(c->salon);
 				sprintf(first_arg, "%d", id_salon);
@@ -898,7 +933,7 @@ void *transmission(void* args){
 
 				break;
 			
-			case 7:
+			case 7: /* LISTE TOUT LES SALON PRESENT SUR LE SERVEUR AVEC /listSalon */
 				strcpy(second_arg,"\n");
 				for(int j=0; j<nb_salon; j++){
 					sprintf(second_arg, "%d", j);
@@ -935,10 +970,9 @@ void *transmission(void* args){
 					perror("Socket fermée envoie fichier\n");
 					pthread_exit(NULL);
 				}
-				printf("SUPPRESSION EFFECTUE\n\n");
 				break;
 
-			case 8: /* MODIFIER LE SALON VOULU avec /modifSalon */
+			case 8: /* MODIFIER LE SALON VOULU avec /modifSalon nomsalon newnomsalon new capacite newdescription */
 				/* RECUPERATION DU NOM DU SALON */
 				p = strtok(NULL, d);
 				strcpy(first_arg, p);
@@ -971,7 +1005,7 @@ void *transmission(void* args){
 				strcat(buffer, " : Le salon ");
 				strtok(first_arg, "\n");
 				strcat(buffer, first_arg);
-				strcat(buffer, " a ete modifié !\n");
+				strcat(buffer, " a été modifié !\n");
 				mes = envoi(c->dSC, buffer);
 
 				/* GESTION DES ERREURS DE L'ENVOIE DU MESSAGE */
@@ -985,7 +1019,7 @@ void *transmission(void* args){
 				}
 				break;
 
-			case 9: /* ENVOYER UN MESSAGE A QUELQU'UN DE SON SALON AVEC /salon */
+			case 9: /* ENVOYER UN MESSAGE A QUELQU'UN DE SON SALON AVEC /salon msg */
 
 				/* RECUPERATION DU MESSAGE SAISIE */
 				p = strtok(NULL, d);
@@ -1020,12 +1054,11 @@ void *transmission(void* args){
 					}
 					
 				}
-				printf("laaaaaaaaaaaa\n");
 				save_last_messages(buffer, c->salon);
 
 				break;
 			
-			case 10: /* REJOINDRE UN DE SON SALON AVEC /joinSalon */
+			case 10: /* REJOINDRE UN DE SON SALON AVEC /joinSalon nomsalon */
 				/* RECUPERATION DU NOM DU SALON */
 				p = strtok(NULL, d);
 				strcpy(first_arg, p);
@@ -1050,7 +1083,7 @@ void *transmission(void* args){
 				}
 				break;
 
-			case 11:
+			case 11: /* SUPPRIMER UN SALON AVEC /delsalon nomsalon */
 				/* RECUPERATION DU NOM DU SALON */
 				p = strtok(NULL, d);
 				strcpy(first_arg, p);
@@ -1075,6 +1108,24 @@ void *transmission(void* args){
 
 				break;
 			
+			case 12:
+
+				open_readme(buffer);
+
+				/* ENVOIE DU MESSAGE */
+				mes = envoi(c->dSC, buffer); 
+
+				if (mes<0){
+					perror("Erreur transmission mot C1vC2\n");
+					pthread_exit(NULL);
+				}
+				if (mes==0){
+					perror("Socket fermée transmission mot C1vC2\n");
+					pthread_exit(NULL);
+				}
+
+				break;
+
 			default:
 				printf(" ");
 		}
@@ -1166,7 +1217,6 @@ int main(int argc, char* argv[]){
 	init_salon();
 
  	printf("En attente des clients\n");
-
 	while(1){
 
 		int dSC;
