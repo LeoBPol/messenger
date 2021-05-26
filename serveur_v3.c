@@ -13,6 +13,9 @@ const char path_folder_channel_messages[20] = "serveur_config/";
 const char path_folder_readme[40] = "serveur_config/readme.txt";
 const char pseudo_serveur[10] = "[SERVEUR]";
 
+char port[5];
+char addr[15];
+
 /* STRUCTURE UTILISATEUR */ 
 typedef struct CLIENT CLIENT;
 
@@ -39,7 +42,7 @@ char d[] = " ";
 
 /* DECLARATION DU SOCKET D'ECOUTE */
 int dSE;
-int dSF;
+int dSE_f;
 
 
 void * strtolower(char * src) {
@@ -95,6 +98,88 @@ void* get_file(char *file_list){
         }
         closedir(d);
     }
+}
+
+void transmit_file(struct CLIENT *src, struct CLIENT *dest, char file_name[], char message[]){
+	int count;
+	char buf[MAX_BUF];
+
+
+	struct sockaddr_in aCF;
+	socklen_t lg = sizeof(struct sockaddr_in);
+
+	printf("src : %d\n", src->dSF);
+	printf("dest : %d\n", dest->dSF);
+
+	if(src->dSF == -1){
+		src->dSF = accept(dSE_f, (struct sockaddr*)&aCF, &lg);
+	}
+
+	/* ENVOIE DU MESSAGE DU CLIENT 1 VERS LE CLIENT 2*/
+	int mes = envoi(dest->dSC, message);
+
+	/* GESTION DES ERREURS DE L'ENVOIE DU MESSAGE */
+	if (mes<0){
+		perror("Erreur transmission mot C1vC2\n");
+		pthread_exit(NULL);
+	}
+	if (mes==0){
+		perror("Socket fermée transmission mot C1vC2\n");
+		pthread_exit(NULL);
+	}
+
+	if(dest->dSF == -1){
+		dest->dSF = accept(dSE_f, (struct sockaddr*)&aCF, &lg);
+	}
+
+	printf("src %d\n", src->dSF);
+	printf("dest %d\n", dest->dSF);
+	/*if(dest->dSF == -1){
+		/* create a socket */
+		/*dest->dSF = socket(PF_INET, SOCK_STREAM, 0);
+		if (dSF<0){
+			perror("Erreur à la création du socket pour les fichiers\n");
+			exit(-1);
+		}
+
+		/* server address */ 
+		/*struct sockaddr_in serv_name;
+		serv_name.sin_family = AF_INET;
+		inet_aton(addr, &serv_name.sin_addr);
+		serv_name.sin_port = htons((short)atoi(port)+1);
+
+		/* connect to the server */
+		/*int res = connect(dest->dSF, (struct sockaddr*)&serv_name, sizeof(serv_name));
+		if (res<0){ 
+			perror("Erreur de connexion au serveur\n");
+			exit(-1);
+		}
+	}*/
+
+	/*char file[100];
+	strcpy(file, path_folder_recv);
+	strcat(file, file_name);
+	strtok(file, "\n");*/
+	
+	int fd;
+
+	printf("Fichier du client reçu nommé : %s\n", file_name);
+
+	//fd = open(file, O_WRONLY | O_CREAT, 0666);
+	while ((count = read(src->dSF, buf, MAX_BUF))>0)
+	{
+		write(dest->dSF, buf, count);
+	}
+	if (count == -1)
+	{
+		perror("Read error");
+		exit(1);
+	} else {
+		printf("Fichier envoyé\n");
+	}
+	close(dest->dSF);
+	dest->dSF = -1;
+	src->dSF = -1;
 }
 
 void printstruct(struct CLIENT c){
@@ -697,15 +782,6 @@ void *transmission(void* args){
 				p = strtok(NULL, d);
 				strcpy(second_arg, p);
 
-				/* RECUPERATION DU CONTENU DU FICHIER */
-				p = strtok(NULL, d);
-				while(p != NULL)
-				{
-					strcat(third_arg, p);
-					strcat(third_arg, " ");
-				    p = strtok(NULL, d);
-				}
-
 				pseudo_id = 0;
 				for (;pseudo_id < nb_client;++pseudo_id){
 					if(strcmp(users[pseudo_id].pseudo, first_arg)==0){
@@ -715,29 +791,14 @@ void *transmission(void* args){
 
 				if(clientID != -1){
 
-					int dSC = users[clientID].dSC;
-
 					strcpy(fourth_arg,"/file ");
 					strcat(fourth_arg, c->pseudo);
 					strcat(fourth_arg, " ");
 					strcat(fourth_arg, second_arg);
-					strcat(fourth_arg, " ");
-					strcat(fourth_arg, third_arg);
 
 					printf("message : %s\n", fourth_arg);
 
-					/* ENVOIE DU MESSAGE DU CLIENT 1 VERS LE CLIENT 2*/
-					int mes = envoi(dSC, fourth_arg);
-
-					/* GESTION DES ERREURS DE L'ENVOIE DU MESSAGE */
-					if (mes<0){
-						perror("Erreur transmission mot C1vC2\n");
-						pthread_exit(NULL);
-					}
-					if (mes==0){
-						perror("Socket fermée transmission mot C1vC2\n");
-						pthread_exit(NULL);
-					}
+					transmit_file(c, &users[clientID], second_arg, fourth_arg);
 				} else {
 					char error[200];
 					strcpy(error, pseudo_serveur);
@@ -793,29 +854,22 @@ void *transmission(void* args){
 
 				} else {
 
-					int addrlen;
-					struct sockaddr_in peer_name;
-
 					int fd;
-					int i, count_r, count_w;
+					int count_r, count_w;
 					char* bufptr;
 					char buf[MAX_BUF];
 					char filename[MAX_BUF];
 
-					/* wait for an incoming connection */
-					printf("wait for wonnection\n");
-					addrlen = sizeof(peer_name);
-					dSF = accept(dSE, (struct sockaddr*)&peer_name, &addrlen);
-					if (dSF == -1)
-					{
-						perror("Connection accept");
-						exit(1);
-					}
+					struct sockaddr_in aCF;
+					socklen_t lg = sizeof(struct sockaddr_in);
 
-					i = 0;
+					if(c->dSF == -1){
+						c->dSF = accept(dSE_f, (struct sockaddr*)&aCF, &lg);
+					}
 					
-					strcpy(filename, p);
-					printf("Trying to read file %s\n", filename);
+					strcpy(filename, path_folder_serv);
+					strcat(filename, p);
+					printf("Lecture du fichier à envoyer : %s\n", filename);
 
 					fd = open(filename, O_RDONLY); 
 					if (fd == -1)
@@ -831,62 +885,17 @@ void *transmission(void* args){
 						{
 							count_r -= count_w;
 							bufptr += count_w;
-							count_w = write(dSF, bufptr, count_r);
+							count_w = write(c->dSF, bufptr, count_r);
 							if (count_w == -1) 
 							{
 								perror("Socket read error");
 								exit(1);
 							}
 						}
+						//write(c->dSF, "EOF", 3);
 					}
-					close(fd);
-					close(dSF);
-
-
-					/*strcpy(file_name, p);
-					strtok(file_name, "\n");
-					printf("file_name : %s\n", file_name);
-
-					char path_file[100] = "";
-					strcpy(path_file, path_folder_serv);
-					strcat(path_file, p);
-					strtok(path_file, "\n");
-
-					FILE *fps = fopen(path_file, "r");
-					if (fps == NULL){
-						printf("Ne peux pas ouvrir le fichier suivant : %s", path_file);
-					}
-					else {
-						printf("Fichier ouvert : %s\n", path_file);
-						char file_content[TMAX] = "";
-						char str[1000] = "";
-
-						/*RECUPERER LE CONTENU DU FICHIER*/
-						/*while (fgets(str, 1000, fps) != NULL) {
-							strcat(file_content, str);
-						}	
-						file_content[strlen(file_content)-1] = '\0';
-
-						char message[TMAX] = "/file ";
-						strcat(message, pseudo_serveur);
-						strcat(message, " ");
-						strcat(message, file_name);
-						strcat(message, " ");
-						strcat(message, file_content);*/
-
-						/* ENVOIE DU MESSAGE */
-						//int mes = envoi(c->dSC, message);
-
-						/* GESTION DES ERREURS DE L'ENVOIE DU MESSAGE */
-						/*if (mes<0){
-							perror("Erreur envoie fichier\n");
-							pthread_exit(NULL);
-						}
-						if (mes==0){
-							perror("Socket fermée envoie fichier\n");
-							pthread_exit(NULL);
-						}
-					}*/
+					close(c->dSF);
+					c->dSF = -1;
 				}
 				break;
 
@@ -1237,6 +1246,8 @@ void init_salon(){
 
 int main(int argc, char* argv[]){
 
+	strcpy(port, argv[1]);
+
 	/* INITIALISATION DU SÉMAPHORE  */
 	int sem = sem_init(&semaphore, 0, NB_CLIENT_MAX);
 	if(sem == -1){
@@ -1270,6 +1281,32 @@ int main(int argc, char* argv[]){
 	struct sockaddr_in aC;
 	socklen_t lg = sizeof(struct sockaddr_in);
 
+	/* CREATTION DU SOCKET FICHIER ET VERIFICATION */
+	dSE_f = socket(PF_INET, SOCK_STREAM, 0);
+	if (dSE_f<0){
+		perror("Erreur à la création du socket d'écoute pour les fichiers");
+		return -1;
+	}
+
+	/* NOMMAGE DU SOCKET FICHIER ET VERIFICATION */
+	struct sockaddr_in adServF;
+	adServF.sin_family = AF_INET;
+	adServF.sin_addr.s_addr = INADDR_ANY;
+	adServF.sin_port = htons((short)atoi(argv[1])+1);
+	verif = bind(dSE_f, (struct sockaddr*)&adServF, sizeof(adServF));
+	if (verif<0){
+		perror("Erreur au nommage du socket d'écoute pour les fichiers");
+		return -1;
+	}
+
+	/* MISE EN ECOUTE DES CONNEXIONS ENTRANTES ET VERIFICATION SOCKET FICHIER */
+	verif = listen(dSE_f,7);
+	if (verif<0){
+		perror("Erreur lors de la mise à l'écoute du socket pour les fichiers");
+		return -1;
+	}
+	struct sockaddr_in aCF;
+
 	users = (CLIENT *) malloc(sizeof(CLIENT)*2);
 
 	init_salon();
@@ -1278,8 +1315,10 @@ int main(int argc, char* argv[]){
 	while(1){
 
 		int dSC;
+		int dSF;
 
 		dSC = accept(dSE, (struct sockaddr*) &aC, &lg);
+		dSF = accept(dSE_f, (struct sockaddr*)&aCF, &lg);
 
 		if (nb_client > 0){
 			users = (CLIENT *) realloc(users, sizeof(CLIENT)*(nb_client+1));
@@ -1289,8 +1328,9 @@ int main(int argc, char* argv[]){
 
 		/* CONNEXION AVEC UN CLIENT */
 		users[nb_client].dSC = dSC;
+		users[nb_client].dSF = dSF;
 
-		if (users[nb_client].dSC<0){
+		if (users[nb_client].dSC<0 || users[nb_client].dSF<0){
 			perror("Erreur de connexion avec le client");
 			return -1;
 		}
@@ -1335,6 +1375,7 @@ int main(int argc, char* argv[]){
 		nb_client++;
 	}
 	close(dSE);
+	close(dSE_f);
 	printf("Fin du programme\n");
 	free(users);
 	return 0;

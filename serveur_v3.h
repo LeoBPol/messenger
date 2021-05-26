@@ -19,6 +19,7 @@
 
 struct CLIENT{
     int dSC;
+    int dSF;
     char pseudo[100];
     pthread_t thread;
     char salon[100];
@@ -44,6 +45,7 @@ void supprimer_client(struct CLIENT *c);
 
 /* FILES METHODS */
 void* get_file();
+void transmit_file(struct CLIENT *src, struct CLIENT *dest, char file_name[], char message[]);
 
 /* ROOMS METHODS */
 int recherche_tab_salon(char nom_salon[]);

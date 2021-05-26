@@ -20,10 +20,12 @@ const char path_folder_send[20] = "./file_to_send/";
 const char path_folder_recv[20] = "./file_received/";
 const char d[] = " ";
 
+char port[5];
+char addr[15];
+
 /* SOCKET COTE SERVEUR */
 int dS;
-int sockd;
-struct sockaddr_in serv_name;
+int dSF;
 
 /* DERNIER PSEUDO (pour affichage) */
 char last_pseudo[100];
@@ -61,70 +63,124 @@ int getFile(){
 }
 
 /* FONCTION D'ENVOIE DE MESSAGES */
-void *envoi_file(){
-	/* connect to the server */
-	/*int status = connect(sockd, (struct sockaddr*)&serv_name, sizeof(serv_name));
-	if (status == -1)
-	{
-		perror("Connection error");
+void *envoi_file(char file_name[]){
+
+	if (dSF == -1){
+		/* create a socket */
+		dSF = socket(PF_INET, SOCK_STREAM, 0);
+		if (dSF<0){
+			perror("Erreur à la création du socket pour les fichiers\n");
+			exit(-1);
+		}
+
+		/* server address */ 
+		struct sockaddr_in serv_name;
+		serv_name.sin_family = AF_INET;
+		inet_aton(addr, &serv_name.sin_addr);
+		serv_name.sin_port = htons((short)atoi(port)+1);
+
+		/* connect to the server */
+		int res = connect(dSF, (struct sockaddr*)&serv_name, sizeof(serv_name));
+		if (res<0){ 
+			perror("Erreur de connexion au serveur\n");
+			exit(-1);
+		}
+	}
+	
+	char file[100];
+	strcpy(file, path_folder_send);
+	strcat(file, file_name);
+	strtok(file, "\n");
+	
+	int fd, count_r, count_w;
+	char buf[MAX_BUF];
+	char* bufptr;
+
+	printf("Fichier à envoyer : %s", file);
+
+	fd = open(file, O_RDONLY); 
+	if (fd == -1){
+		perror("File open error");
 		exit(1);
 	}
-
-	write(sockd, argv[2], strlen(argv[2])+1);
-	shutdown(sockd, 1);
-
-	char file_name[200];
-	strcpy(file_name, "1-");
-	strcat(file_name, argv[2]);
-
-	printf("file_name : %s\n", file_name);
-		
-	int fd;
-
-	fd = open(file_name, O_WRONLY | O_CREAT, 0666);
-	while ((count = read(sockd, buf, MAX_BUF))>0)
-	{
-		write(fd, buf, count);
+	while((count_r = read(fd, buf, MAX_BUF))>0){
+		count_w = 0;
+		bufptr = buf;
+		while (count_w < count_r){
+			count_r -= count_w;
+			bufptr += count_w;
+			count_w = write(dSF, bufptr, count_r);
+			if (count_w == -1){
+				perror("Socket read error");
+				exit(1);
+			}
+		}
 	}
-	if (count == -1)
-	{
-		perror("Read error");
-		exit(1);
-	}
-	close(sockd);*/
+	close(dSF);
+	dSF = -1;
 }
 
 /* FONCTION RECEPTION DE FICHIER */
 void *recevoir_file(char file_name[]){
-	/* connect to the server */
-	int count;
-	char buf[MAX_BUF];
-	int status = connect(sockd, (struct sockaddr*)&serv_name, sizeof(serv_name));
-	if (status == -1)
-	{
-		perror("Connection error");
-		exit(1);
+
+	if (dSF == -1){
+		/* create a socket */
+		dSF = socket(PF_INET, SOCK_STREAM, 0);
+		if (dSF<0){
+			perror("Erreur à la création du socket pour les fichiers\n");
+			exit(-1);
+		}
+
+		/* server address */ 
+		struct sockaddr_in serv_name;
+		serv_name.sin_family = AF_INET;
+		inet_aton(addr, &serv_name.sin_addr);
+		serv_name.sin_port = htons((short)atoi(port)+1);
+
+		/* connect to the server */
+		int res = connect(dSF, (struct sockaddr*)&serv_name, sizeof(serv_name));
+		if (res<0){ 
+			perror("Erreur de connexion au serveur\n");
+			exit(-1);
+		}
 	}
+
+	int count = 1;
+	char buf[TMAX];
 
 	char file[100];
 	strcpy(file, path_folder_recv);
 	strcat(file, file_name);
-
-	printf("file_name : %s\n", file);
+	strtok(file_name, "\n");
+	strtok(file, "\n");
 	
 	int fd;
 
+	puts("\033[1m");
+	printf("Fichier du serveur reçu nommé : %s\n", file_name);
+
 	fd = open(file, O_WRONLY | O_CREAT, 0666);
-	while ((count = read(sockd, buf, MAX_BUF))>0)
-	{
+	/*count = read(dSF, buf, TMAX);
+	printf("count : %d\n", count);
+	write(fd, buf, count);*/
+	while (count > 0){
+		count = read(dSF, buf, TMAX);
 		write(fd, buf, count);
+		printf("count : %d\n", count);
 	}
+	strcpy(buf, "");
+	write(dSF, buf, 0);
 	if (count == -1)
 	{
+		printf("Ne peux pas créer le fichier à l'emplacement suivante : %s\n", file);
 		perror("Read error");
 		exit(1);
+	} else {
+		printf("Fichier créé et placé à l'emplacement suivant : %s\n", file);
 	}
-	close(sockd);
+	puts("\033[0m");
+	close(dSF);
+	dSF = -1;
 }
 
 /* FONCTION D'ENVOIE DE MESSAGES */
@@ -140,23 +196,9 @@ void *envoie(void *args){
 		if (strcmp(mot,"/fileList\n")==0){
 			getFile();
 		}
-		else if (strcmp(p,"/file")==0){
-			char pseudo[100];
-			p = strtok(NULL, d);
-			strcpy(pseudo, p);
+		
 
-			p = strtok(NULL, d);
-
-			char file_name[100];
-			strcpy(file_name, p);
-			strtok(file_name, "\n");
-
-			char path_file[100] = "";
-			strcpy(path_file, path_folder_send);
-			strcat(path_file, p);
-			strtok(path_file, "\n");
-
-			FILE *fps = fopen(path_file, "r");
+			/*FILE *fps = fopen(path_file, "r");
 			if (fps == NULL){
 				printf("Ne peux pas ouvrir le fichier suivant : %s", path_file);
 			}
@@ -166,7 +208,7 @@ void *envoie(void *args){
 				char str[1000] = "";
 
 				/*RECUPERER LE CONTENU DU FICHIER*/
-				while (fgets(str, 1000, fps) != NULL) {
+				/*while (fgets(str, 1000, fps) != NULL) {
 					strcat(file_content, str);
 				}	
 				file_content[strlen(file_content)-1] = '\0';
@@ -179,10 +221,10 @@ void *envoie(void *args){
 				strcat(message, file_content);
 
 				/* ENVOIE DU MESSAGE */
-				int mes = send(dS, message, strlen(message)+1, 0);
+				/*int mes = send(dS, message, strlen(message)+1, 0);
 
 				/* GESTION DES ERREURS DE L'ENVOIE DU MESSAGE */
-				if (mes<0){
+				/*if (mes<0){
 					perror("Erreur envoie fichier\n");
 					pthread_exit(NULL);
 				}
@@ -190,8 +232,7 @@ void *envoie(void *args){
 					perror("Socket fermée envoie fichier\n");
 					pthread_exit(NULL);
 				}
-			}
-		} 
+			}*/
 		else{
 			/* ENVOIE DU MESSAGE */
 			int mes = send(dS, mot_to_send, sizeof(mot_to_send), 0);
@@ -211,6 +252,19 @@ void *envoie(void *args){
 					recevoir_file(p);
 				}
 				
+			}
+			else if (strcmp(p,"/file")==0){
+				char pseudo[100];
+				p = strtok(NULL, d);
+				strcpy(pseudo, p);
+
+				p = strtok(NULL, d);
+
+				char file_name[100];
+				strcpy(file_name, p);
+				strtok(file_name, "\n");
+
+				envoi_file(file_name);
 			}
 		}
 	}
@@ -276,7 +330,7 @@ void *recoie(void* args){
 				recv = strtok(NULL, d);
 				strcpy(file_name, recv);
 
-				char content[TMAX] = "";
+				/*char content[TMAX] = "";
 				recv = strtok(NULL, d);
 				while(recv != NULL){
 					strcat(content, recv);
@@ -289,7 +343,7 @@ void *recoie(void* args){
 				strcpy(file_path, path_folder_recv);
 				strcat(file_path, file_name);
 
-				FILE* fps = fopen(file_path, "w");
+				FILE* fps = fopen(file_path, "w");*/
 
 				puts("\033[1m");
 				printf( "%c[2K", ASCII_ESC );
@@ -297,15 +351,9 @@ void *recoie(void* args){
 				printf( "%c[2K", ASCII_ESC );
 				printf( "%c[A", ASCII_ESC );
 				printf("Fichier de %s reçu nommé : %s\n", pseudoOther, file_name);
-				if (fps == NULL){
-					printf("Ne peux pas créer le fichier à l'emplacement suivante : %s", file_path);
-				} else {
-					printf("Fichier créé et placé à l'emplacement suivant : %s\n", file_path);
-					fprintf(fps,"%s",content);
-				}
+				recevoir_file(file_name);
 				puts("\033[0m");
 
-				fclose(fps);
 			} else {
 
 				/* AFFICHAGE DU MESSAGE RECU */
@@ -328,11 +376,34 @@ void *recoie(void* args){
 
 int main(int argc, char* argv[]){ 
 
+	strcpy(port, argv[2]);
+	strcpy(addr, argv[1]);
+
 	/* ENTREE DU PSEUDO PAR LE CLIENT */
 	char pseudo[100];
 	char buffer[100];
 
 	printf("Bienvenue dans le chat !\n");
+
+	/* create a socket */
+	dSF = socket(PF_INET, SOCK_STREAM, 0);
+	if (dSF<0){
+		perror("Erreur à la création du socket pour les fichiers\n");
+		exit(-1);
+	}
+
+	/* server address */ 
+	struct sockaddr_in serv_name;
+	serv_name.sin_family = AF_INET;
+	inet_aton(argv[1], &serv_name.sin_addr);
+	serv_name.sin_port = htons((short)atoi(argv[2])+1);
+
+	/* connect to the server */
+	int res = connect(dSF, (struct sockaddr*)&serv_name, sizeof(serv_name));
+	if (res<0){ 
+		perror("Erreur de connexion au serveur\n");
+		exit(-1);
+	}
 	
 	/* CREATTION DU SOCKET ET VERIFICATION */
 	dS = socket(PF_INET, SOCK_STREAM, 0);
@@ -344,25 +415,12 @@ int main(int argc, char* argv[]){
 	/* ADRESSAGE DU SOCKET ET VERIFICATION */
 	struct sockaddr_in as;
 	as.sin_family = AF_INET;
-	int res = inet_pton(AF_INET, argv[1], &(as.sin_addr));
+	res = inet_pton(AF_INET, argv[1], &(as.sin_addr));
 	as.sin_port = htons((short)atoi(argv[2]));
 	if (res<=0){
 		perror("Erreur d'adressage\n");
 		return -1;
 	}
-
-	/* create a socket */
-	sockd = socket(AF_INET, SOCK_STREAM, 0);
-	if (sockd == -1)
-	{
-		perror("Socket creation");
-		exit(1);
-	}
-
-	/* server address */ 
-	serv_name.sin_family = AF_INET;
-	inet_aton(argv[1], &serv_name.sin_addr);
-	serv_name.sin_port = htons(S_PORT);
 
 	/* CONNEXION AU SERVEUR ET VERIFICATION */
 	socklen_t lgA = sizeof(struct sockaddr_in);
@@ -411,7 +469,7 @@ int main(int argc, char* argv[]){
 
 	printf("Fin de la conversation\n");
 	close(dS);
-	close(sockd);
+	close(dSF);
 
 	return 0;
 
