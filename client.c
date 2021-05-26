@@ -1,4 +1,5 @@
 #include <sys/socket.h>
+#include <sys/types.h>
 #include <netinet/in.h>
 #include <stdio.h>
 #include <string.h>
@@ -7,9 +8,13 @@
 #include <arpa/inet.h>
 #include <pthread.h>
 #include <dirent.h>
+#include <fcntl.h>
 
 #define TMAX 65000 /* TAILLE MAXIMALE D'UN MESSAGE EN OCTET */
 #define ASCII_ESC 27
+
+#define MAX_BUF 1048576
+#define S_PORT  6398
 
 const char path_folder_send[20] = "./file_to_send/";
 const char path_folder_recv[20] = "./file_received/";
@@ -17,6 +22,8 @@ const char d[] = " ";
 
 /* SOCKET COTE SERVEUR */
 int dS;
+int sockd;
+struct sockaddr_in serv_name;
 
 /* DERNIER PSEUDO (pour affichage) */
 char last_pseudo[100];
@@ -51,6 +58,73 @@ int getFile(){
         closedir(d);
     }
     return 0;
+}
+
+/* FONCTION D'ENVOIE DE MESSAGES */
+void *envoi_file(){
+	/* connect to the server */
+	/*int status = connect(sockd, (struct sockaddr*)&serv_name, sizeof(serv_name));
+	if (status == -1)
+	{
+		perror("Connection error");
+		exit(1);
+	}
+
+	write(sockd, argv[2], strlen(argv[2])+1);
+	shutdown(sockd, 1);
+
+	char file_name[200];
+	strcpy(file_name, "1-");
+	strcat(file_name, argv[2]);
+
+	printf("file_name : %s\n", file_name);
+		
+	int fd;
+
+	fd = open(file_name, O_WRONLY | O_CREAT, 0666);
+	while ((count = read(sockd, buf, MAX_BUF))>0)
+	{
+		write(fd, buf, count);
+	}
+	if (count == -1)
+	{
+		perror("Read error");
+		exit(1);
+	}
+	close(sockd);*/
+}
+
+/* FONCTION RECEPTION DE FICHIER */
+void *recevoir_file(char file_name[]){
+	/* connect to the server */
+	int count;
+	char buf[MAX_BUF];
+	int status = connect(sockd, (struct sockaddr*)&serv_name, sizeof(serv_name));
+	if (status == -1)
+	{
+		perror("Connection error");
+		exit(1);
+	}
+
+	char file[100];
+	strcpy(file, path_folder_recv);
+	strcat(file, file_name);
+
+	printf("file_name : %s\n", file);
+	
+	int fd;
+
+	fd = open(file, O_WRONLY | O_CREAT, 0666);
+	while ((count = read(sockd, buf, MAX_BUF))>0)
+	{
+		write(fd, buf, count);
+	}
+	if (count == -1)
+	{
+		perror("Read error");
+		exit(1);
+	}
+	close(sockd);
 }
 
 /* FONCTION D'ENVOIE DE MESSAGES */
@@ -117,7 +191,7 @@ void *envoie(void *args){
 					pthread_exit(NULL);
 				}
 			}
-		}
+		} 
 		else{
 			/* ENVOIE DU MESSAGE */
 			int mes = send(dS, mot_to_send, sizeof(mot_to_send), 0);
@@ -130,6 +204,13 @@ void *envoie(void *args){
 			if (mes==0){
 				perror("Socket fermée envoie mot\n");
 				pthread_exit(NULL);
+			}
+			if(strcmp(p,"/getfile")==0){
+				p = strtok(NULL, d);
+				if (p != NULL){
+					recevoir_file(p);
+				}
+				
 			}
 		}
 	}
@@ -270,6 +351,19 @@ int main(int argc, char* argv[]){
 		return -1;
 	}
 
+	/* create a socket */
+	sockd = socket(AF_INET, SOCK_STREAM, 0);
+	if (sockd == -1)
+	{
+		perror("Socket creation");
+		exit(1);
+	}
+
+	/* server address */ 
+	serv_name.sin_family = AF_INET;
+	inet_aton(argv[1], &serv_name.sin_addr);
+	serv_name.sin_port = htons(S_PORT);
+
 	/* CONNEXION AU SERVEUR ET VERIFICATION */
 	socklen_t lgA = sizeof(struct sockaddr_in);
 	res = connect(dS, (struct sockaddr *) &as, lgA);
@@ -317,6 +411,7 @@ int main(int argc, char* argv[]){
 
 	printf("Fin de la conversation\n");
 	close(dS);
+	close(sockd);
 
 	return 0;
 

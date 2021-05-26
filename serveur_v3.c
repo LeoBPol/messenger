@@ -3,6 +3,9 @@
 #define ALLOC 2
 #define NB_CLIENT_MAX 10
 
+#define MAX_BUF 1048576
+#define S_PORT  6398
+
 const char command_list[13][20] = {"/mp", "/whoishere", "/fin", "/file", "/getfile", "/newsalon", "/infosalon", "/listsalon", "/modifsalon", "/salon", "/joinsalon", "/delsalon", "/man"};
 const char path_folder_serv[30] = "serveur_config/file_on_serv/";
 const char path_folder_channel_list[40] = "serveur_config/channelList.txt";
@@ -36,6 +39,7 @@ char d[] = " ";
 
 /* DECLARATION DU SOCKET D'ECOUTE */
 int dSE;
+int dSF;
 
 
 void * strtolower(char * src) {
@@ -788,7 +792,58 @@ void *transmission(void* args){
 					}
 
 				} else {
-					strcpy(file_name, p);
+
+					int addrlen;
+					struct sockaddr_in peer_name;
+
+					int fd;
+					int i, count_r, count_w;
+					char* bufptr;
+					char buf[MAX_BUF];
+					char filename[MAX_BUF];
+
+					/* wait for an incoming connection */
+					printf("wait for wonnection\n");
+					addrlen = sizeof(peer_name);
+					dSF = accept(dSE, (struct sockaddr*)&peer_name, &addrlen);
+					if (dSF == -1)
+					{
+						perror("Connection accept");
+						exit(1);
+					}
+
+					i = 0;
+					
+					strcpy(filename, p);
+					printf("Trying to read file %s\n", filename);
+
+					fd = open(filename, O_RDONLY); 
+					if (fd == -1)
+					{
+						perror("File open error");
+						exit(1);
+					}
+					while((count_r = read(fd, buf, MAX_BUF))>0)
+					{
+						count_w = 0;
+						bufptr = buf;
+						while (count_w < count_r)
+						{
+							count_r -= count_w;
+							bufptr += count_w;
+							count_w = write(dSF, bufptr, count_r);
+							if (count_w == -1) 
+							{
+								perror("Socket read error");
+								exit(1);
+							}
+						}
+					}
+					close(fd);
+					close(dSF);
+
+
+					/*strcpy(file_name, p);
 					strtok(file_name, "\n");
 					printf("file_name : %s\n", file_name);
 
@@ -807,7 +862,7 @@ void *transmission(void* args){
 						char str[1000] = "";
 
 						/*RECUPERER LE CONTENU DU FICHIER*/
-						while (fgets(str, 1000, fps) != NULL) {
+						/*while (fgets(str, 1000, fps) != NULL) {
 							strcat(file_content, str);
 						}	
 						file_content[strlen(file_content)-1] = '\0';
@@ -817,13 +872,13 @@ void *transmission(void* args){
 						strcat(message, " ");
 						strcat(message, file_name);
 						strcat(message, " ");
-						strcat(message, file_content);
+						strcat(message, file_content);*/
 
 						/* ENVOIE DU MESSAGE */
-						int mes = envoi(c->dSC, message);
+						//int mes = envoi(c->dSC, message);
 
 						/* GESTION DES ERREURS DE L'ENVOIE DU MESSAGE */
-						if (mes<0){
+						/*if (mes<0){
 							perror("Erreur envoie fichier\n");
 							pthread_exit(NULL);
 						}
@@ -831,7 +886,7 @@ void *transmission(void* args){
 							perror("Socket fermée envoie fichier\n");
 							pthread_exit(NULL);
 						}
-					}
+					}*/
 				}
 				break;
 

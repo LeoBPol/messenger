@@ -1,5 +1,6 @@
 #ifndef SERVEUR_H   /* Include guard */
 #include <sys/socket.h>
+#include <sys/types.h>
 #include <netinet/in.h>
 #include <stdio.h>
 #include <string.h>
@@ -12,6 +13,8 @@
 #include <semaphore.h>
 #include <dirent.h>
 #include <ctype.h>
+#include <fcntl.h>
+
 #define SERVEUR_H
 
 struct CLIENT{
