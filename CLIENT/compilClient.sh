@@ -1,1 +1,1 @@
-gcc -o serveur serveur.c -pthread
+gcc -o client client.c -pthread
