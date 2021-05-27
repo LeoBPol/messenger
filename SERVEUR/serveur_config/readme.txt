@@ -44,3 +44,13 @@ ATTENTION À BIEN RESPECTER L'ORTHOGRAPHE DU SALON.
 
 /fin 
 VOUS QUITTEZ LE SERVEUR.
+
+AVEC:
+destinataire : chaine de caractere
+message : chaine de caractere
+nomFichier : chaine de caractere
+capacite : int
+description: chaine de caractere
+nouveauNomSalon : chaine de caractere
+nouvelleCapacite : int
+nouvelleDescription : chaine de caractere
