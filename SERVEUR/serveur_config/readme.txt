@@ -49,6 +49,7 @@ AVEC:
 destinataire : chaine de caractere
 message : chaine de caractere
 nomFichier : chaine de caractere
+nomSalon : chaine de caractere
 capacite : int
 description: chaine de caractere
 nouveauNomSalon : chaine de caractere
