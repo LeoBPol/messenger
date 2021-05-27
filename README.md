@@ -50,7 +50,7 @@ Ouvrir le terminal
 /salonList  
 /salon [message]  
 /newSalon [nomSalon] [capacite] [description]  
-/modifChannel [nomSalon][nouveauNomSalon][nouvelleCapacite] [nouvelleDescription]  
+/modifChannel [nomSalon][nouveauNomSalon][nouvelleCapacite][nouvelleDescription]  
 /delChannel [nomSalon]  
 /joinSalon [nomSalon]  
 /fin  
