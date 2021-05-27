@@ -11,7 +11,7 @@ const char path_folder_serv[30] = "serveur_config/file_on_serv/";
 const char path_folder_channel_list[40] = "serveur_config/channelList.txt";
 const char path_folder_channel_messages[20] = "serveur_config/";
 const char path_folder_readme[40] = "serveur_config/readme.txt";
-const char pseudo_serveur[10] = "[SERVEUR]";
+const char pseudo_serveur[30] = "\033[1;31m[SERVEUR]\033[1;37m";
 
 char port[5];
 char addr[15];
@@ -273,6 +273,12 @@ void unsave_salon(char nom_salon[]){
 		}
 		printf("Fichier %s modifié en supprimant le salon : %s\n", path_folder_channel_list, nom_salon);
 	}
+
+	char file_messages[TMAX];
+	strcpy(file_messages, path_folder_channel_messages);
+	strcat(file_messages, nom_salon);
+	strcat(file_messages, ".txt");
+	remove(file_messages);
 	fclose(fps);
 }
 
@@ -331,7 +337,7 @@ void save_last_messages(char last_message[], char nom_salon[]){
 	fclose(fps);
 }
 
-void get_last_messages(char* last_messages[], char nom_salon[]){
+int get_last_messages(char* last_messages[], char nom_salon[]){
 	char d[] = "\n";
 	int nb_message = 0;
 	char file_name[300];
@@ -366,8 +372,9 @@ void get_last_messages(char* last_messages[], char nom_salon[]){
 		}
 
 		printf("Fichier %s ouvert\n", file_name);
+		fclose(fps);
 	}
-	fclose(fps);
+	return nb_message;
 }
 
 int recherche_tab_salon(char nom_salon[]){
@@ -558,7 +565,6 @@ int envoi(int socket, char* buffer) {
 
 	int mes;
 	//Envoi du message
-	printf("BUFFER : %s\n",buffer);
 	mes = send(socket, buffer, (strlen(buffer)+1)*sizeof(char), 0);
 	if (mes == -1){
 		perror("Erreur envoie\n");
@@ -1055,10 +1061,10 @@ void *transmission(void* args){
 				strcat(buffer, "\n[ 10 DERNIERS MESSAGES DANS LE SALON ]\n");
 
 				char* last_messages[10];
-				get_last_messages(last_messages, salons[id_salon].nom_salon);
+				int nb_messages = get_last_messages(last_messages, salons[id_salon].nom_salon);
 
 				int i = 0;
-				while(i < 10 && strcmp(last_messages[i], "") != 0){
+				while(i < nb_messages){
 					strcat(buffer, last_messages[i]);
 					strcat(buffer, "\n");
 					i++;
@@ -1281,7 +1287,7 @@ void *transmission(void* args){
 					if(res == 0){ // SI TOUT EST BON
 						/* CREATION DU MESSAGE A ENVOYER*/
 						strcpy(second_arg, pseudo_serveur);
-						strcat(second_arg, " : Vous avez rejoint le salon\n");
+						strcat(second_arg, " : Vous avez rejoint le salon ");
 						strcat(second_arg, first_arg);
 
 						/* ENVOIE DU MESSAGE */
@@ -1299,7 +1305,7 @@ void *transmission(void* args){
 					}else if(res == -1){ // SI IL N'Y A PLUS DE PLACE SUR LE SALON
 						/* CREATION DU MESSAGE A ENVOYER*/
 						strcpy(second_arg, pseudo_serveur);
-						strcat(second_arg, " : Plus de place dans le salon\n");
+						strcat(second_arg, " : Le salon n'existe pas\n");
 
 						/* ENVOIE DU MESSAGE */
 						mes = envoi(c->dSC, second_arg); 
@@ -1316,7 +1322,7 @@ void *transmission(void* args){
 					}else{ // SI LE SALON  N'EXISTE PAS
 						/* CREATION DU MESSAGE A ENVOYER*/
 						strcpy(second_arg, pseudo_serveur);
-						strcat(second_arg, " : Le salon n'existe pas\n");
+						strcat(second_arg, " : Plus de place dans le salon\n");
 
 						/* ENVOIE DU MESSAGE */
 						mes = envoi(c->dSC, second_arg); 
@@ -1459,8 +1465,6 @@ void *transmission(void* args){
 
 void init_salon(){
 
-	printf("dans le init\n");
-
 	char d[] = "\n";
 	char *channel_list[10];
 	int nb_channel = 0;
@@ -1490,7 +1494,11 @@ void init_salon(){
 		/* CREATION DES SALONS */
 		int id_channel = 0;
 		for(;id_channel < nb_channel;id_channel++){
- 			nouveau_salon(channel_list[id_channel],100,"Salon récupéré par sauvegarde",1);
+			int admin = 1;
+			if (strcmp(channel_list[id_channel], "General")){
+				admin = 0;
+			}
+ 			nouveau_salon(channel_list[id_channel],100,"Salon récupéré par sauvegarde", admin);
 		}
 	}
 	fclose(fps);

@@ -236,8 +236,6 @@ void *envoie(void *args){
 /* FONCTION DE RECEPTION DE MESSAGES */
 void *recoie(void* args){
 
-	//char pseudoOther[100];
-
 	char mot[TMAX];
 	char mot_to_print[TMAX];
 	int fin = 0;
@@ -247,22 +245,6 @@ void *recoie(void* args){
 	while(fin==0){
 
 		char mot[TMAX] = "";
-
-		//char char_nb_octets[10];
-
-		/* RECEPTION DU PSEUDO DU CLIENT */
-		/*int mes = recv(dS, pseudoOther, sizeof(pseudoOther), 0);
-
-		/* GESTION DES ERREURS DE LA RECEPTION DU PSEUDO 
-		if (mes<0){
-			perror("Erreur reception mot\n");
-			pthread_exit(NULL);
-		}
-		if (mes==0){
-			printf("Le serveur a été coupé\n");
-			pthread_cancel(threadS);
-			pthread_exit(NULL);
-		}/*
 
 		/* RECEPTION DU MESSAGE */
 		int mes = recv(dS, mot, sizeof(mot), 0);
