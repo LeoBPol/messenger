@@ -1,4 +1,4 @@
-#include "serveur_v3.h"
+#include "serveur.h"
 #define TMAX 65000 /* TAILLE MAXIMALE D'UN MESSAGE EN OCTET */
 #define ALLOC 2
 #define NB_CLIENT_MAX 10
