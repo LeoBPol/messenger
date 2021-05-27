@@ -160,13 +160,9 @@ void *recevoir_file(char file_name[]){
 	printf("Fichier du serveur reçu nommé : %s\n", file_name);
 
 	fd = open(file, O_WRONLY | O_CREAT, 0666);
-	/*count = read(dSF, buf, TMAX);
-	printf("count : %d\n", count);
-	write(fd, buf, count);*/
 	while (count > 0){
 		count = read(dSF, buf, TMAX);
 		write(fd, buf, count);
-		printf("count : %d\n", count);
 	}
 	strcpy(buf, "");
 	write(dSF, buf, 0);
@@ -196,43 +192,6 @@ void *envoie(void *args){
 		if (strcmp(mot,"/fileList\n")==0){
 			getFile();
 		}
-		
-
-			/*FILE *fps = fopen(path_file, "r");
-			if (fps == NULL){
-				printf("Ne peux pas ouvrir le fichier suivant : %s", path_file);
-			}
-			else {
-				printf("Fichier ouvert : %s\n", path_file);
-				char file_content[TMAX] = "";
-				char str[1000] = "";
-
-				/*RECUPERER LE CONTENU DU FICHIER*/
-				/*while (fgets(str, 1000, fps) != NULL) {
-					strcat(file_content, str);
-				}	
-				file_content[strlen(file_content)-1] = '\0';
-
-				char message[TMAX] = "/file ";
-				strcat(message, pseudo);
-				strcat(message, " ");
-				strcat(message, file_name);
-				strcat(message, " ");
-				strcat(message, file_content);
-
-				/* ENVOIE DU MESSAGE */
-				/*int mes = send(dS, message, strlen(message)+1, 0);
-
-				/* GESTION DES ERREURS DE L'ENVOIE DU MESSAGE */
-				/*if (mes<0){
-					perror("Erreur envoie fichier\n");
-					pthread_exit(NULL);
-				}
-				if (mes==0){
-					perror("Socket fermée envoie fichier\n");
-					pthread_exit(NULL);
-				}
-			}*/
 		else{
 			/* ENVOIE DU MESSAGE */
 			int mes = send(dS, mot_to_send, sizeof(mot_to_send), 0);
@@ -254,17 +213,20 @@ void *envoie(void *args){
 				
 			}
 			else if (strcmp(p,"/file")==0){
+
 				char pseudo[100];
 				p = strtok(NULL, d);
 				strcpy(pseudo, p);
 
 				p = strtok(NULL, d);
 
-				char file_name[100];
-				strcpy(file_name, p);
-				strtok(file_name, "\n");
-
-				envoi_file(file_name);
+				if (p != NULL){
+					char file_name[TMAX];
+					strcpy(file_name, p);
+					strtok(file_name, "\n");
+					envoi_file(file_name);
+				}
+				
 			}
 		}
 	}

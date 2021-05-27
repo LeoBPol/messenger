@@ -52,6 +52,17 @@ void * strtolower(char * src) {
     return result;
 }
 
+/* FONCTION PERMETTANT DE COMPTER LE NOMBRE D'ARGUMENTS */
+int arg_minimum(char msg[],int mini){
+	int tmp = 0;
+	for(int i=0;i<strlen(msg);i++){
+		if(msg[i] == ' '){			
+			tmp++;
+		}
+	}
+	return tmp+1>= mini;
+}
+
 void open_readme(char file_content[]){
 	char file_name[300];
 	strcpy(file_name, path_folder_readme);
@@ -108,9 +119,6 @@ void transmit_file(struct CLIENT *src, struct CLIENT *dest, char file_name[], ch
 	struct sockaddr_in aCF;
 	socklen_t lg = sizeof(struct sockaddr_in);
 
-	printf("src : %d\n", src->dSF);
-	printf("dest : %d\n", dest->dSF);
-
 	if(src->dSF == -1){
 		src->dSF = accept(dSE_f, (struct sockaddr*)&aCF, &lg);
 	}
@@ -132,34 +140,6 @@ void transmit_file(struct CLIENT *src, struct CLIENT *dest, char file_name[], ch
 		dest->dSF = accept(dSE_f, (struct sockaddr*)&aCF, &lg);
 	}
 
-	printf("src %d\n", src->dSF);
-	printf("dest %d\n", dest->dSF);
-	/*if(dest->dSF == -1){
-		/* create a socket */
-		/*dest->dSF = socket(PF_INET, SOCK_STREAM, 0);
-		if (dSF<0){
-			perror("Erreur à la création du socket pour les fichiers\n");
-			exit(-1);
-		}
-
-		/* server address */ 
-		/*struct sockaddr_in serv_name;
-		serv_name.sin_family = AF_INET;
-		inet_aton(addr, &serv_name.sin_addr);
-		serv_name.sin_port = htons((short)atoi(port)+1);
-
-		/* connect to the server */
-		/*int res = connect(dest->dSF, (struct sockaddr*)&serv_name, sizeof(serv_name));
-		if (res<0){ 
-			perror("Erreur de connexion au serveur\n");
-			exit(-1);
-		}
-	}*/
-
-	/*char file[100];
-	strcpy(file, path_folder_recv);
-	strcat(file, file_name);
-	strtok(file, "\n");*/
 	
 	int fd;
 
@@ -252,7 +232,6 @@ void save_salon(char nom_salon_a_sauv[]){
 		fputs(nom_salon_a_sauv, fps);
 	}
 	fclose(fps);
-
 }
 
 void unsave_salon(char nom_salon[]){
@@ -378,9 +357,12 @@ void get_last_messages(char* last_messages[], char nom_salon[]){
 		char *p = strtok(file_content, d);
 		while(p != NULL){
 			last_messages[nb_message] = p;
-			printf("last_messages[%d] : %s\n", nb_message, last_messages[nb_message]);
 			nb_message++;
 			p = strtok(NULL, d);
+		}
+
+		for(int i = 0; i < nb_message; i++){
+			printf("last_messages[%d] : %s\n", i, last_messages[i]);
 		}
 
 		printf("Fichier %s ouvert\n", file_name);
@@ -428,7 +410,7 @@ void *remove_from_salon(struct CLIENT *c, char nom_salon[]){
 	
 }
 
-void *nouveau_salon(char nom_salon[], int capa, char description[],int admin){
+int nouveau_salon(char nom_salon[], int capa, char description[],int admin){
 	/* SI EN AJOUTANT UN SALON IL Y A TOUJOURS UNE PLACE DANS LE TABLEAU DE SALON ALORS: */
 	if (nb_salon+1 < sizeof(salons)/sizeof*(salons)){
 
@@ -458,77 +440,87 @@ void *nouveau_salon(char nom_salon[], int capa, char description[],int admin){
 		    *(salons + nb_salon) = newSalon;
 
 		    /* ON INCREMANTE LE NOMBRE DE SALONS*/
-		    nb_salon++;		
+		    nb_salon++;
+		    return 0;		
 		}
+		/* SINON ON ENVOI UNE ERREUR SI LE SALON EXISTE DEJA  */
 		else{
-			printf("Le salon existe déjà");
+			return -1;
 		}
 	}
-	/* SINON ON ENVOI UNE ERREUR */
+	/* SINON ON ENVOI UNE ERREUR SI IL Y A TROP DE SALON  */
 	else{
-		printf("Il y a trop de salons");
+		return -2;
 	}
 }
 
-void *modif_salon(char salon_base[],char new_nom_salon[], int new_capa, char new_description[]){
+int modif_salon(char salon_base[],char new_nom_salon[], int new_capa, char new_description[]){
 
 	int nb_of_salon = recherche_tab_salon(salon_base);
+	int nb_of_salon2 = recherche_tab_salon(new_nom_salon);
 	/* SI LE SALON EXISTE */
 	if (nb_of_salon != -1){
-		/* SI ON A LES DROITS DE MODIFICATION */
-		if(salons[nb_of_salon].admin == 1){
-			/* ON REMPLACE LES ATTRIBUTS*/
-			strcpy(salons[nb_of_salon].nom_salon, new_nom_salon);
-		    strcpy(salons[nb_of_salon].description, new_description);
+		if(nb_of_salon2 ==-1){
+			/* SI ON A LES DROITS DE MODIFICATION */
+			if(salons[nb_of_salon].admin == 1){
+				/* ON REMPLACE LES ATTRIBUTS*/
+				strcpy(salons[nb_of_salon].nom_salon, new_nom_salon);
+			    strcpy(salons[nb_of_salon].description, new_description);
 
-		    /* REMPLISSAGE AUTOMATIQUE DE LA CAPACITE */
-		    int tmp_capa = 0;
-		    if (new_capa <= 0 || new_capa > 200 ){
-		        tmp_capa = 10;
-		    } 
-		    else{
-		    	tmp_capa = new_capa;
-		    }
-		    salons[nb_of_salon].capacite = tmp_capa;
+			    /* REMPLISSAGE AUTOMATIQUE DE LA CAPACITE */
+			    int tmp_capa = 0;
+			    if (new_capa <= 0 || new_capa > 200 ){
+			        tmp_capa = 10;
+			    } 
+			    else{
+			    	tmp_capa = new_capa;
+			    }
+			    salons[nb_of_salon].capacite = tmp_capa;
 
-		    unsave_salon(salon_base);
-		    save_salon(new_nom_salon);
+			    unsave_salon(salon_base);
+			    save_salon(new_nom_salon);
+			    return 0;
+			}
+			else{ /* SINON ON ENVOI UNE ERREUR SI ON A PAS LES DROITS POUR MODIFIER LE SALON */
+				return -1;
+			}
 		}
 		/* SINON ON ENVOI UNE ERREUR */
 		else{
-			printf("Vous n'avez pas les droits pour modifier ce salon\n");
+			return -3;
 		}
 	}
 	/* SINON ON ENVOI UNE ERREUR */
     else{
-    	printf("Le salon n'existe pas\n");
+    	return -2;
     }
 }
 
-void *rejoindre_salon(struct CLIENT *c,char nom_salon[]){
+int rejoindre_salon(struct CLIENT *c,char nom_salon[]){
 
 	int nb_of_salon = recherche_tab_salon(nom_salon);
 	/* SI LE SALON EXISTE */
-	if (nb_of_salon != -1){
+	if (nb_of_salon != -1){  
 		/* ON REGARDE SI LE SALON EXISTE */
 		if(salons[nb_of_salon].nb_connecte + 1 <= salons[nb_of_salon].capacite){
 			remove_from_salon(c,c->salon);
     		add_to_salon(c,nom_salon);
     		printf("%s à rejoint le salon : %s\n",c->pseudo,nom_salon);
+    		return 0;
 		}
 		/* SINON ON ENVOI UN MESSAGE */
 		else{
-			printf("Plus de place dans le salon\n");
+			return -2;
 		}
 	}
 	/* SINON ON ENVOI UNE ERREUR */
     else{
-    	printf("Le salon n'existe pas\n");
+    	return -1;
     }
 
 }
 
-void *supprime_salon(char nom_salon[]){
+int supprime_salon(char nom_salon[]){
 
 	int nb_of_salon = recherche_tab_salon(nom_salon);
 	/* SI LE SALON EXISTE */
@@ -538,7 +530,7 @@ void *supprime_salon(char nom_salon[]){
 		/* ON PLACE TOUT LES CLIENTS DU SALON QUE L'ON VEUT SUPPRIMER VERS LE GENERAL(PAR DEFAUT)*/	
 		for(int j=0; j<nb_client;j++){
 			if(strcmp(users[j].salon,nom_salon)==0){
-				rejoindre_salon(&users[j],"General");
+				int res = rejoindre_salon(&users[j],"General");
 			}
 		}
 		/* ON SUPPRIME LE SALON VOULU ET ON DECALE TOUT LES SALONS SUIVANT D'UN EN ARRIERE*/	
@@ -549,13 +541,16 @@ void *supprime_salon(char nom_salon[]){
 	    nb_salon--; 
 
 	    unsave_salon(nom_salon);
+	    return 0;
 		}
+		/* SINON ON ENVOI UNE ERREUR SI L'UTILISATEUR N'A PAS LES DROITS POUR SUPPRIMER LE SALON  */
 		else{
-			printf("Vous n'avez pas les droits pour supprimer un salon\n");
+			return -1;
 		}
 	}
+	/* SINON ON ENVOI UNE ERREUR SI LE SALON N'EXISTE PAS  */
     else{
-    	printf("Le salon %s n'existe pas\n",nom_salon);
+    	return -1;
     }
 }
 
@@ -586,6 +581,7 @@ void *transmission(void* args){
 	struct CLIENT *c = (CLIENT *) args;
 
 	char message_recu[TMAX];
+	char message_copy[TMAX];
 	char command[100];
 	char first_arg[TMAX];
 	char second_arg[TMAX];
@@ -623,6 +619,8 @@ void *transmission(void* args){
 
 		if(strcmp(message_recu, "")!=0){
 			printf("message : %s", message_recu);
+			strcpy(message_copy,"");
+			strcat(message_copy,message_recu);
 			strtok(message_recu, "\n");
 		}
 
@@ -639,42 +637,87 @@ void *transmission(void* args){
 
 		switch (id_command){
 			case 0: /* ENVOI D'UN MESSAGE A UN OU PLUSIEURS DESTINATAIRES AVEC /mp pseudo message */
+				if(arg_minimum(message_copy,3)==1){
+					/* RECUPERATION DU PSEUDO DU DESTINATAIRE */
+					p = strtok(NULL, d);
+					strcpy(second_arg, p);
 
-				/* RECUPERATION DU PSEUDO DU DESTINATAIRE */
-				p = strtok(NULL, d);
-				strcpy(second_arg, p);
-
-				/* RECUPERATION DU MESSAGE SAISIE */
-				p = strtok(NULL, d);
-				while(p != NULL)
-				{
-					strcat(first_arg, p);
-					strcat(first_arg, " ");
-				    p = strtok(NULL, d);
-				}
-				
-				int pseudo_id = 0;
-				for (;pseudo_id < nb_client;++pseudo_id){
-					if(strcmp(users[pseudo_id].pseudo, second_arg)==0){
-						clientID = pseudo_id;
+					/* RECUPERATION DU MESSAGE SAISIE */
+					p = strtok(NULL, d);
+					while(p != NULL)
+					{
+						strcat(first_arg, p);
+						strcat(first_arg, " ");
+					    p = strtok(NULL, d);
 					}
-				}
-				/* SI LE PSEUDO RECU EST "all" (ON ENVOI LE MESSAGE À TOUT LES CLIENTS) */
-				if(strcmp(second_arg,"all")==0){
+					
+					int pseudo_id = 0;
+					for (;pseudo_id < nb_client;++pseudo_id){
+						if(strcmp(users[pseudo_id].pseudo, second_arg)==0){
+							clientID = pseudo_id;
+						}
+					}
+					/* SI LE PSEUDO RECU EST "all" (ON ENVOI LE MESSAGE À TOUT LES CLIENTS) */
+					if(strcmp(second_arg,"all")==0){
 
-					pseudo_id = 0;
-					for (;pseudo_id < nb_client;pseudo_id++){
+						pseudo_id = 0;
+						for (;pseudo_id < nb_client;pseudo_id++){
+
+							/* CREATION DU MESSAGE A ENVOYER */
+							strcpy(buffer, c->pseudo);
+							strcat(buffer, " : ");
+							strcat(buffer, first_arg);
+							strcat(buffer, "\n");
+
+							/* ENVOI DU MESSAGE */
+							int mes = envoi(users[pseudo_id].dSC, buffer);
+
+						
+							/* GESTION DES ERREURS DE L'ENVOIE DU MESSAGE */
+							if (mes<0){
+								perror("Erreur transmission mot C1vC2\n");
+								pthread_exit(NULL);
+							}
+							if (mes==0){
+								perror("Socket fermée transmission mot C1vC2\n");
+								pthread_exit(NULL);
+							}
+						}
+					
+					} else if(clientID != -1){
 
 						/* CREATION DU MESSAGE A ENVOYER */
 						strcpy(buffer, c->pseudo);
 						strcat(buffer, " : ");
 						strcat(buffer, first_arg);
 						strcat(buffer, "\n");
+						printf("%s",buffer);
+						/* ENVOI DU MESSAGE */
+						int mes = envoi(users[clientID].dSC, buffer);
+
+						/* GESTION DES ERREURS DE L'ENVOIE DU MESSAGE */
+						if (mes<0){
+							perror("Erreur transmission mot C1vC2\n");
+							pthread_exit(NULL);
+						}
+						if (mes==0){
+							perror("Socket fermée transmission mot C1vC2\n");
+							pthread_exit(NULL);
+						}
+
+					} else {
+
+						/* CREATION DU MESSAGE A ENVOYER */
+						strcpy(buffer, pseudo_serveur);
+						strcat(buffer, " : ");
+						strcat(buffer, "Message non distribué. L'utilisateur '");
+						strcat(buffer, second_arg);
+						strcat(buffer, "' n'est pas connecté.");
+						strcat(buffer, "\n");
 
 						/* ENVOI DU MESSAGE */
-						int mes = envoi(users[pseudo_id].dSC, buffer);
+						int mes = envoi(c->dSC, buffer);
 
-					
 						/* GESTION DES ERREURS DE L'ENVOIE DU MESSAGE */
 						if (mes<0){
 							perror("Erreur transmission mot C1vC2\n");
@@ -685,19 +728,14 @@ void *transmission(void* args){
 							pthread_exit(NULL);
 						}
 					}
-				
-				} else if(clientID != -1){
+				}else{
+					/* CREATION DU MESSAGE A ENVOYER*/
+					strcpy(second_arg, pseudo_serveur);
+					strcat(second_arg, " : Pas assez d'arguments, veuillez consulter le /man pour voir comment utiliser la commande\n");
 
-					/* CREATION DU MESSAGE A ENVOYER */
-					strcpy(buffer, c->pseudo);
-					strcat(buffer, " : ");
-					strcat(buffer, first_arg);
-					strcat(buffer, "\n");
-					printf("%s",buffer);
-					/* ENVOI DU MESSAGE */
-					int mes = envoi(users[clientID].dSC, buffer);
+					/* ENVOIE DU MESSAGE */
+					mes = envoi(c->dSC, second_arg); 
 
-					/* GESTION DES ERREURS DE L'ENVOIE DU MESSAGE */
 					if (mes<0){
 						perror("Erreur transmission mot C1vC2\n");
 						pthread_exit(NULL);
@@ -706,30 +744,6 @@ void *transmission(void* args){
 						perror("Socket fermée transmission mot C1vC2\n");
 						pthread_exit(NULL);
 					}
-
-				} else {
-
-					/* CREATION DU MESSAGE A ENVOYER */
-					strcpy(buffer, pseudo_serveur);
-					strcat(buffer, " : ");
-					strcat(buffer, "Message non distribué. L'utilisateur '");
-					strcat(buffer, second_arg);
-					strcat(buffer, "' n'est pas connecté.");
-					strcat(buffer, "\n");
-
-					/* ENVOI DU MESSAGE */
-					int mes = envoi(c->dSC, buffer);
-
-					/* GESTION DES ERREURS DE L'ENVOIE DU MESSAGE */
-					if (mes<0){
-						perror("Erreur transmission mot C1vC2\n");
-						pthread_exit(NULL);
-					}
-					if (mes==0){
-						perror("Socket fermée transmission mot C1vC2\n");
-						pthread_exit(NULL);
-					}
-
 				}
 				break;
 
@@ -737,7 +751,7 @@ void *transmission(void* args){
 
 				/* ENVOIE DES PSEUDOS AU CLIENT */
 				strcpy(second_arg, "[");
-				pseudo_id = 0;
+				int pseudo_id = 0;
 				for (;pseudo_id < nb_client;pseudo_id++){
 					strcpy(third_arg, users[pseudo_id].pseudo);
 					strcat(second_arg, strcat(third_arg, "] [")); 
@@ -773,43 +787,58 @@ void *transmission(void* args){
 				break;
 
 			case 3: /* TRANSMET LE FICHIER DE LA SOURCE VERS LE DESTINATAIRE AVEC /file */
+				if(arg_minimum(message_copy,3)==1){
+					/* RECUPERATION DU PSEUDO DU DESTINATAIRE */
+					p = strtok(NULL, d);
+					strcpy(first_arg, p);
 
-				/* RECUPERATION DU PSEUDO DU DESTINATAIRE */
-				p = strtok(NULL, d);
-				strcpy(first_arg, p);
+					/* RECUPERATION DU NOM DU FICHIER */
+					p = strtok(NULL, d);
+					strcpy(second_arg, p);
 
-				/* RECUPERATION DU NOM DU FICHIER */
-				p = strtok(NULL, d);
-				strcpy(second_arg, p);
-
-				pseudo_id = 0;
-				for (;pseudo_id < nb_client;++pseudo_id){
-					if(strcmp(users[pseudo_id].pseudo, first_arg)==0){
-						clientID = pseudo_id;
+					pseudo_id = 0;
+					for (;pseudo_id < nb_client;++pseudo_id){
+						if(strcmp(users[pseudo_id].pseudo, first_arg)==0){
+							clientID = pseudo_id;
+						}
 					}
-				}
 
-				if(clientID != -1){
+					if(clientID != -1){
 
-					strcpy(fourth_arg,"/file ");
-					strcat(fourth_arg, c->pseudo);
-					strcat(fourth_arg, " ");
-					strcat(fourth_arg, second_arg);
+						strcpy(fourth_arg,"/file ");
+						strcat(fourth_arg, c->pseudo);
+						strcat(fourth_arg, " ");
+						strcat(fourth_arg, second_arg);
 
-					printf("message : %s\n", fourth_arg);
+						transmit_file(c, &users[clientID], second_arg, fourth_arg);
+					} else {
+						char error[200];
+						strcpy(error, pseudo_serveur);
+						strcat(error, " : Fichier non distribué. L'utilisateur '");
+						strcat(error, first_arg);
+						strcat(error, "' n'est pas connecté.");
 
-					transmit_file(c, &users[clientID], second_arg, fourth_arg);
-				} else {
-					char error[200];
-					strcpy(error, pseudo_serveur);
-					strcat(error, " : Fichier non distribué. L'utilisateur '");
-					strcat(error, first_arg);
-					strcat(error, "' n'est pas connecté.");
+						/* ENVOIE ERREUR À LA SOURCE */
+						int mes = envoi(c->dSC, error);
 
-					/* ENVOIE ERREUR À LA SOURCE */
-					int mes = envoi(c->dSC, error);
+						/* GESTION DES ERREURS DE L'ENVOIE DU MESSAGE */
+						if (mes<0){
+							perror("Erreur transmission mot C1vC2\n");
+							pthread_exit(NULL);
+						}
+						if (mes==0){
+							perror("Socket fermée transmission mot C1vC2\n");
+							pthread_exit(NULL);
+						}
+					}
+				} else{
+					/* CREATION DU MESSAGE A ENVOYER*/
+					strcpy(second_arg, pseudo_serveur);
+					strcat(second_arg, " : Pas assez d'arguments, veuillez consulter le /man pour voir comment utiliser la commande\n");
 
-					/* GESTION DES ERREURS DE L'ENVOIE DU MESSAGE */
+					/* ENVOIE DU MESSAGE */
+					mes = envoi(c->dSC, second_arg); 
+
 					if (mes<0){
 						perror("Erreur transmission mot C1vC2\n");
 						pthread_exit(NULL);
@@ -901,54 +930,103 @@ void *transmission(void* args){
 
 			case 5: /* CREER UN NOUVEAU SALON AVEC /newSalon nomsalon capacite description */
 
-				/* RECUPERATION DU NOM DU SALON (arg 1)*/
-				p = strtok(NULL, d);
-				strcpy(first_arg, p);	
+				if(arg_minimum(message_copy,4)==1){
+					/* RECUPERATION DU NOM DU SALON (arg 1)*/
+					p = strtok(NULL, d);
+					strcpy(first_arg, p);	
 
-				/* RECUPERATION DE LA CAPACITE DU SALON (arg 2) */
-				p = strtok(NULL, d);
-				strcpy(second_arg, p);
-				int capa = atoi(second_arg);
+					/* RECUPERATION DE LA CAPACITE DU SALON (arg 2) */
+					p = strtok(NULL, d);
+					strcpy(second_arg, p);
+					int capa = atoi(second_arg);
 
-				/* RECUPERATION DE LA DESCRIPTION DU SALON (arg 3) */
-				p = strtok(NULL, d);
-				while(p != NULL)
-				{
-					strcat(third_arg, p);
-					strcat(third_arg, " ");
-				    p = strtok(NULL, d);
-				}
-				third_arg [strlen(third_arg)-1] = 0;
+					/* RECUPERATION DE LA DESCRIPTION DU SALON (arg 3) */
+					p = strtok(NULL, d);
+					while(p != NULL)
+					{
+						strcat(third_arg, p);
+						strcat(third_arg, " ");
+					    p = strtok(NULL, d);
+					}
+					third_arg [strlen(third_arg)-1] = 0;
 
-				/* ON CREE LE NOUVEAU SALON */
-				nouveau_salon(first_arg,capa,third_arg,1);
+					/* ON CREE LE NOUVEAU SALON */
+					int res = nouveau_salon(first_arg,capa,third_arg,1);
+					if(res == 0){ // SI TOUT EST BON
+						/* ON ENREGISTRE LE NOUVEAU SALON */
+						save_salon(first_arg);
 
-				/* ON ENREGISTRE LE NOUVEAU SALON */
-				save_salon(first_arg);
+						/* ON REJOINT LE NOUVEAU SALON */
+		    			mes = rejoindre_salon(c,first_arg);
 
-				/* ON REJOINT LE NOUVEAU SALON */
-    			rejoindre_salon(c,first_arg);
+						/* ENVOIE DU MESSAGE DU CLIENT 1 VERS LE CLIENT 2*/
+						strcpy(fourth_arg, pseudo_serveur);
+						strcat(fourth_arg, " : Le salon ");
+						strtok(first_arg, "\n");
+						strcat(fourth_arg, first_arg);
+						strcat(fourth_arg, " a été crée !\n");
+						int mes = send(c->dSC, fourth_arg, sizeof(fourth_arg), 0);
 
-				int dSC = c->dSC;
+						/* GESTION DES ERREURS DE L'ENVOIE DU MESSAGE */
+						if (mes<0){
+							perror("Erreur transmission mot C1vC2\n");
+							pthread_exit(NULL);						
+						}
+						if (mes==0){
+							perror("Socket fermée transmission mot C1vC2\n");
+							pthread_exit(NULL);
+						}
 
-				send(dSC, pseudo_serveur, sizeof(pseudo_serveur), 0);
+					}else if(res == -1){ // SI IL N'Y A PLUS DE PLACE SUR LE SALON
+						/* CREATION DU MESSAGE A ENVOYER*/
+						strcpy(second_arg, pseudo_serveur);
+						strcat(second_arg, " : Le salon existe déjà\n");
 
-				/* ENVOIE DU MESSAGE DU CLIENT 1 VERS LE CLIENT 2*/
-				strcpy(fourth_arg, pseudo_serveur);
-				strcat(fourth_arg, " : Le salon ");
-				strtok(first_arg, "\n");
-				strcat(fourth_arg, first_arg);
-				strcat(fourth_arg, " a ete cree !\n");
-				int mes = send(c->dSC, fourth_arg, sizeof(fourth_arg), 0);
+						/* ENVOIE DU MESSAGE */
+						mes = envoi(c->dSC, second_arg); 
 
-				/* GESTION DES ERREURS DE L'ENVOIE DU MESSAGE */
-				if (mes<0){
-					perror("Erreur transmission mot C1vC2\n");
-					pthread_exit(NULL);						
-				}
-				if (mes==0){
-					perror("Socket fermée transmission mot C1vC2\n");
-					pthread_exit(NULL);
+						if (mes<0){
+							perror("Erreur transmission mot C1vC2\n");
+							pthread_exit(NULL);
+						}
+						if (mes==0){
+							perror("Socket fermée transmission mot C1vC2\n");
+							pthread_exit(NULL);
+						}
+
+					}else{ // SI LE SALON  N'EXISTE PAS
+						/* CREATION DU MESSAGE A ENVOYER*/
+						strcpy(second_arg, pseudo_serveur);
+						strcat(second_arg, " : Il y a trop de salons\n");
+
+						/* ENVOIE DU MESSAGE */
+						mes = envoi(c->dSC, second_arg); 
+
+						if (mes<0){
+							perror("Erreur transmission mot C1vC2\n");
+							pthread_exit(NULL);
+						}
+						if (mes==0){
+							perror("Socket fermée transmission mot C1vC2\n");
+							pthread_exit(NULL);
+						}
+					}
+				}else{
+					/* CREATION DU MESSAGE A ENVOYER*/
+					strcpy(second_arg, pseudo_serveur);
+					strcat(second_arg, " : Pas assez d'arguments, veuillez consulter le /man pour voir comment utiliser la commande\n");
+
+					/* ENVOIE DU MESSAGE */
+					mes = envoi(c->dSC, second_arg); 
+
+					if (mes<0){
+						perror("Erreur transmission mot C1vC2\n");
+						pthread_exit(NULL);
+					}
+					if (mes==0){
+						perror("Socket fermée transmission mot C1vC2\n");
+						pthread_exit(NULL);
+					}
 				}
 				break; 
 			
@@ -1001,9 +1079,9 @@ void *transmission(void* args){
 				break;
 			
 			case 7: /* LISTE TOUT LES SALON PRESENT SUR LE SERVEUR AVEC /listSalon */
-				strcpy(second_arg,"\n");
+
 				for(int j=0; j<nb_salon; j++){
-					sprintf(second_arg, "%d", j);
+					sprintf(second_arg, "\n%d", j);
 			    	strcat(first_arg, second_arg);
 			    	strcat(first_arg, " - ");
 			    	strcat(first_arg, salons[j].nom_salon);
@@ -1017,9 +1095,8 @@ void *transmission(void* args){
 			    	memset (second_arg, 0, sizeof (second_arg));
 			    	sprintf(second_arg, "%d", salons[j].capacite);
 			    	strcat(first_arg, second_arg);
-			    	strcat(first_arg, "\n");
-					
 				}
+				strcat(first_arg, "\n");
 
 				strcpy(buffer, pseudo_serveur);
 				strcat(buffer, " : ");
@@ -1039,50 +1116,119 @@ void *transmission(void* args){
 				}
 				break;
 
-			case 8: /* MODIFIER LE SALON VOULU avec /modifSalon nomsalon newnomsalon new capacite newdescription */
-				/* RECUPERATION DU NOM DU SALON */
-				p = strtok(NULL, d);
-				strcpy(first_arg, p);
+			case 8: /* MODIFIER LE SALON VOULU avec /modifSalon nomsalon newnomsalon newcapacite newdescription */
+				if(arg_minimum(message_copy,5)==1){
+					/* RECUPERATION DU NOM DU SALON */
+					p = strtok(NULL, d);
+					strcpy(first_arg, p);
 
-				/* RECUPERATION DU NOUVEAU NOM DE SALON */
-				p = strtok(NULL, d);
-				strcpy(second_arg, p);		
+					/* RECUPERATION DU NOUVEAU NOM DE SALON */
+					p = strtok(NULL, d);
+					strcpy(second_arg, p);		
 
-				/* RECUPERATION DU NOM DU SALON */
-				p = strtok(NULL, d);
-				strcpy(third_arg, p);
-				capa = atoi(third_arg);
+					/* RECUPERATION DU NOM DU SALON */
+					p = strtok(NULL, d);
+					strcpy(third_arg, p);
+					int capa = atoi(third_arg);
 
-				/* RECUPERATION DE LA DESCRIPTION DU SALON */
-				p = strtok(NULL, d);
-				while(p != NULL)
-				{
-					strcat(fourth_arg, p);
-					strcat(fourth_arg, " ");
-				    p = strtok(NULL, d);
-				}
+					/* RECUPERATION DE LA DESCRIPTION DU SALON */
+					p = strtok(NULL, d);
+					while(p != NULL)
+					{
+						strcat(fourth_arg, p);
+						strcat(fourth_arg, " ");
+					    p = strtok(NULL, d);
+					}
+					fourth_arg[strlen(fourth_arg)-1]= '\0';
 
-				modif_salon(first_arg,second_arg,capa,fourth_arg);
-				strcpy(fourth_arg,"\0");
+					int res = modif_salon(first_arg,second_arg,capa,fourth_arg);
+					if(res == 0){ // SI TOUT EST BON
 
-				dSC = c->dSC;
+						/* ENVOIE DU MESSAGE DU CLIENT 1 VERS LE CLIENT 2*/
+						strcpy(buffer, pseudo_serveur);
+						strcat(buffer, " : Le salon ");
+						strtok(first_arg, "\n");
+						strcat(buffer, first_arg);
+						strcat(buffer, " a été modifié !\n");
+						mes = envoi(c->dSC, buffer);
 
-				/* ENVOIE DU MESSAGE DU CLIENT 1 VERS LE CLIENT 2*/
-				strcpy(buffer, pseudo_serveur);
-				strcat(buffer, " : Le salon ");
-				strtok(first_arg, "\n");
-				strcat(buffer, first_arg);
-				strcat(buffer, " a été modifié !\n");
-				mes = envoi(c->dSC, buffer);
+						/* GESTION DES ERREURS DE L'ENVOIE DU MESSAGE */
+						if (mes<0){
+							perror("Erreur transmission mot C1vC2\n");
+							pthread_exit(NULL);						
+						}
+						if (mes==0){
+							perror("Socket fermée transmission mot C1vC2\n");
+							pthread_exit(NULL);
+						}
 
-				/* GESTION DES ERREURS DE L'ENVOIE DU MESSAGE */
-				if (mes<0){
-					perror("Erreur transmission mot C1vC2\n");
-					pthread_exit(NULL);						
-				}
-				if (mes==0){
-					perror("Socket fermée transmission mot C1vC2\n");
-					pthread_exit(NULL);
+					}else if(res == -1){ // SI ON A PAS LES DROITS POUR MODIFIER LE SALON
+						/* CREATION DU MESSAGE A ENVOYER*/
+						strcpy(second_arg, pseudo_serveur);
+						strcat(second_arg, " : Vous n'avez pas les droits pour modifier ce salon");
+
+						/* ENVOIE DU MESSAGE */
+						mes = envoi(c->dSC, second_arg); 
+
+						if (mes<0){
+							perror("Erreur transmission mot C1vC2\n");
+							pthread_exit(NULL);
+						}
+						if (mes==0){
+							perror("Socket fermée transmission mot C1vC2\n");
+							pthread_exit(NULL);
+						}
+
+					}else if(res == -2) { // SI LE SALON  N'EXISTE PAS
+						/* CREATION DU MESSAGE A ENVOYER*/
+						strcpy(second_arg, pseudo_serveur);
+						strcat(second_arg, " : Le salon n'existe pas");
+
+						/* ENVOIE DU MESSAGE */
+						mes = envoi(c->dSC, second_arg); 
+
+						if (mes<0){
+							perror("Erreur transmission mot C1vC2\n");
+							pthread_exit(NULL);
+						}
+						if (mes==0){
+							perror("Socket fermée transmission mot C1vC2\n");
+							pthread_exit(NULL);
+						}
+					}
+					else{
+						/* CREATION DU MESSAGE A ENVOYER*/
+						strcpy(second_arg, pseudo_serveur);
+						strcat(second_arg, " : Le nom du salon est déjà pris");
+
+						/* ENVOIE DU MESSAGE */
+						mes = envoi(c->dSC, second_arg); 
+
+						if (mes<0){
+							perror("Erreur transmission mot C1vC2\n");
+							pthread_exit(NULL);
+						}
+						if (mes==0){
+							perror("Socket fermée transmission mot C1vC2\n");
+							pthread_exit(NULL);
+						}
+					}
+				}else{
+					/* CREATION DU MESSAGE A ENVOYER*/
+					strcpy(second_arg, pseudo_serveur);
+					strcat(second_arg, " : Pas assez d'arguments, veuillez consulter le /man pour voir comment utiliser la commande\n");
+
+					/* ENVOIE DU MESSAGE */
+					mes = envoi(c->dSC, second_arg); 
+
+					if (mes<0){
+						perror("Erreur transmission mot C1vC2\n");
+						pthread_exit(NULL);
+					}
+					if (mes==0){
+						perror("Socket fermée transmission mot C1vC2\n");
+						pthread_exit(NULL);
+					}
 				}
 				break;
 
@@ -1125,56 +1271,162 @@ void *transmission(void* args){
 
 				break;
 			
-			case 10: /* REJOINDRE UN DE SON SALON AVEC /joinSalon nomsalon */
-				/* RECUPERATION DU NOM DU SALON */
-				p = strtok(NULL, d);
-				strcpy(first_arg, p);
+			case 10: /* REJOINDRE UN SALON AVEC /joinSalon nomsalon */
+				if(arg_minimum(message_copy,2)==1){
+					/* RECUPERATION DU NOM DU SALON */
+					p = strtok(NULL, d);
+					strcpy(first_arg, p);
 
-				rejoindre_salon(c,first_arg);
+					int res = rejoindre_salon(c,first_arg);
+					if(res == 0){ // SI TOUT EST BON
+						/* CREATION DU MESSAGE A ENVOYER*/
+						strcpy(second_arg, pseudo_serveur);
+						strcat(second_arg, " : Vous avez rejoint le salon\n");
+						strcat(second_arg, first_arg);
 
-				/* CREATION DU MESSAGE A ENVOYER*/
-				strcpy(second_arg, pseudo_serveur);
-				strcat(second_arg, " : Vous avez rejoint le salon ");
-				strcat(second_arg, first_arg);
+						/* ENVOIE DU MESSAGE */
+						mes = envoi(c->dSC, second_arg); 
 
-				/* ENVOIE DU MESSAGE */
-				mes = envoi(c->dSC, second_arg); 
+						if (mes<0){
+							perror("Erreur transmission mot C1vC2\n");
+							pthread_exit(NULL);
+						}
+						if (mes==0){
+							perror("Socket fermée transmission mot C1vC2\n");
+							pthread_exit(NULL);
+						}
 
-				if (mes<0){
-					perror("Erreur transmission mot C1vC2\n");
-					pthread_exit(NULL);
-				}
-				if (mes==0){
-					perror("Socket fermée transmission mot C1vC2\n");
-					pthread_exit(NULL);
+					}else if(res == -1){ // SI IL N'Y A PLUS DE PLACE SUR LE SALON
+						/* CREATION DU MESSAGE A ENVOYER*/
+						strcpy(second_arg, pseudo_serveur);
+						strcat(second_arg, " : Plus de place dans le salon\n");
+
+						/* ENVOIE DU MESSAGE */
+						mes = envoi(c->dSC, second_arg); 
+
+						if (mes<0){
+							perror("Erreur transmission mot C1vC2\n");
+							pthread_exit(NULL);
+						}
+						if (mes==0){
+							perror("Socket fermée transmission mot C1vC2\n");
+							pthread_exit(NULL);
+						}
+
+					}else{ // SI LE SALON  N'EXISTE PAS
+						/* CREATION DU MESSAGE A ENVOYER*/
+						strcpy(second_arg, pseudo_serveur);
+						strcat(second_arg, " : Le salon n'existe pas\n");
+
+						/* ENVOIE DU MESSAGE */
+						mes = envoi(c->dSC, second_arg); 
+
+						if (mes<0){
+							perror("Erreur transmission mot C1vC2\n");
+							pthread_exit(NULL);
+						}
+						if (mes==0){
+							perror("Socket fermée transmission mot C1vC2\n");
+							pthread_exit(NULL);
+						}
+					}
+				}else{
+					/* CREATION DU MESSAGE A ENVOYER*/
+					strcpy(second_arg, pseudo_serveur);
+					strcat(second_arg, " : Pas assez d'arguments, veuillez consulter le /man pour voir comment utiliser la commande\n");
+
+					/* ENVOIE DU MESSAGE */
+					mes = envoi(c->dSC, second_arg); 
+
+					if (mes<0){
+						perror("Erreur transmission mot C1vC2\n");
+						pthread_exit(NULL);
+					}
+					if (mes==0){
+						perror("Socket fermée transmission mot C1vC2\n");
+						pthread_exit(NULL);
+					}
 				}
 				break;
 
-			case 11: /* SUPPRIMER UN SALON AVEC /delsalon nomsalon */
-				/* RECUPERATION DU NOM DU SALON */
-				p = strtok(NULL, d);
-				strcpy(first_arg, p);
-				supprime_salon(first_arg);
+			case 11: /* SUPPRIMER UN SALON AVEC /delSalon nomsalon */
+				if(arg_minimum(message_copy,2)==1){
+					/* RECUPERATION DU NOM DU SALON */
+					p = strtok(NULL, d);
+					strcpy(first_arg, p);
+					int res = supprime_salon(first_arg);
 
-				/* CREATION DU MESSAGE A ENVOYER*/
-				strcpy(second_arg, pseudo_serveur);
-				strcat(second_arg, " : Vous avez supprimer le salon ");
-				strcat(second_arg, first_arg);
+					if(res == 0){ // SI TOUT EST BON
+						/* CREATION DU MESSAGE A ENVOYER*/
+						strcpy(second_arg, pseudo_serveur);
+						strcat(second_arg, " : Vous avez supprimé le salon ");
+						strcat(second_arg, first_arg);
 
-				/* ENVOIE DU MESSAGE */
-				mes = envoi(c->dSC, second_arg); 
+						/* ENVOIE DU MESSAGE */
+						mes = envoi(c->dSC, second_arg); 
 
-				if (mes<0){
-					perror("Erreur transmission mot C1vC2\n");
-					pthread_exit(NULL);
+						if (mes<0){
+							perror("Erreur transmission mot C1vC2\n");
+							pthread_exit(NULL);
+						}
+						if (mes==0){
+							perror("Socket fermée transmission mot C1vC2\n");
+							pthread_exit(NULL);
+						}
+
+					}else if(res == -1){ // SI IL N'Y A PLUS DE PLACE SUR LE SALON
+						/* CREATION DU MESSAGE A ENVOYER*/
+						strcpy(second_arg, pseudo_serveur);
+						strcat(second_arg, " : Vous n'avez pas les droits pour supprimer ce salon\n");
+
+						/* ENVOIE DU MESSAGE */
+						mes = envoi(c->dSC, second_arg); 
+
+						if (mes<0){
+							perror("Erreur transmission mot C1vC2\n");
+							pthread_exit(NULL);
+						}
+						if (mes==0){
+							perror("Socket fermée transmission mot C1vC2\n");
+							pthread_exit(NULL);
+						}
+
+					}else{ // SI LE SALON  N'EXISTE PAS
+						/* CREATION DU MESSAGE A ENVOYER*/
+						strcpy(second_arg, pseudo_serveur);
+						strcat(second_arg, " : Le salon n'existe pas\n");
+
+						/* ENVOIE DU MESSAGE */
+						mes = envoi(c->dSC, second_arg); 
+
+						if (mes<0){
+							perror("Erreur transmission mot C1vC2\n");
+							pthread_exit(NULL);
+						}
+						if (mes==0){
+							perror("Socket fermée transmission mot C1vC2\n");
+							pthread_exit(NULL);
+						}
+					}
+				}else{
+					/* CREATION DU MESSAGE A ENVOYER*/
+					strcpy(second_arg, pseudo_serveur);
+					strcat(second_arg, " : Pas assez d'arguments, veuillez consulter le /man pour voir comment utiliser la commande\n");
+
+					/* ENVOIE DU MESSAGE */
+					mes = envoi(c->dSC, second_arg); 
+
+					if (mes<0){
+						perror("Erreur transmission mot C1vC2\n");
+						pthread_exit(NULL);
+					}
+					if (mes==0){
+						perror("Socket fermée transmission mot C1vC2\n");
+						pthread_exit(NULL);
+					}
 				}
-				if (mes==0){
-					perror("Socket fermée transmission mot C1vC2\n");
-					pthread_exit(NULL);
-				}
-
 				break;
-			
+
 			case 12:
 
 				open_readme(buffer);

@@ -39,6 +39,7 @@ int command_id(char* command);
 void *transmission(void *args);
 int main(int argc, char* argv[]);
 void open_readme();
+int arg_minimum(char msg[],int mini);
 
 /* USERS METHODS */
 void supprimer_client(struct CLIENT *c);
@@ -56,9 +57,9 @@ void save_last_messages(char last_message[], char nom_salon[]);
 void get_last_messages(char* last_messages[], char nom_salon[]);
 void *add_to_salon(struct CLIENT *c, char nom_salon[]);
 void *remove_from_salon(struct CLIENT *c, char nom_salon[]);
-void *nouveau_salon(char nom_salon[], int capa, char description[],int admin);
-void *modif_salon(char salon_base[],char new_nom_salon[], int new_capa, char new_description[]);
-void *rejoindre_salon(struct CLIENT *c,char nom_salon[]);
-void *supprime_salon(char nom_salon[]);
+int nouveau_salon(char nom_salon[], int capa, char description[],int admin);
+int modif_salon(char salon_base[],char new_nom_salon[], int new_capa, char new_description[]);
+int rejoindre_salon(struct CLIENT *c,char nom_salon[]);
+int supprime_salon(char nom_salon[]);
 
 #endif // SERVEUR_H

@@ -15,6 +15,7 @@
 
 struct CLIENT{
     int dSC;
+    int dSF;
     char pseudo[100];
     pthread_t thread;
     char salon[100];
