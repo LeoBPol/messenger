@@ -37,8 +37,12 @@ int nb_salon = 0;
 /* DECLARATION DU SEMAPHORE */
 sem_t semaphore;
 
+/* DELEIMITEUR */
 char d[] = " ";
+
 /* DECLARATION DU MUTEX */
+static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t mutex_users = PTHREAD_MUTEX_INITIALIZER;
 
 /* DECLARATION DU SOCKET D'ECOUTE */
 int dSE;
@@ -143,19 +147,24 @@ void transmit_file(struct CLIENT *src, struct CLIENT *dest, char file_name[], ch
 	
 	int fd;
 
-	printf("Fichier du client reçu nommé : %s\n", file_name);
+	
 
 	//fd = open(file, O_WRONLY | O_CREAT, 0666);
+	int count_max = 0;
 	while ((count = read(src->dSF, buf, MAX_BUF))>0)
 	{
 		write(dest->dSF, buf, count);
+		if (count > count_max){
+			count_max = count;
+		}
 	}
 	if (count == -1)
 	{
 		perror("Read error");
 		exit(1);
-	} else {
-		printf("Fichier envoyé\n");
+	}
+	else if (count_max>0){
+		printf("Fichier du client reçu nommé : %s\n", file_name);
 	}
 	close(dest->dSF);
 	dest->dSF = -1;
@@ -178,6 +187,8 @@ int command_id(char* command){
 }
 
 void supprimer_client(struct CLIENT *c){
+
+	pthread_mutex_lock(& mutex_users);
 	int client_id = 0;
 
 	pthread_t thread_to_stop;
@@ -206,8 +217,6 @@ void supprimer_client(struct CLIENT *c){
 
 	nb_client--;
 
-	printf("nb_client : %d\n", nb_client);
-
 	if (nb_client > 0){
 		users = (CLIENT *) realloc(users, sizeof(CLIENT)*(nb_client));
 	} else {
@@ -216,8 +225,8 @@ void supprimer_client(struct CLIENT *c){
 	
 	pthread_cancel(thread_to_stop);
 	pthread_exit(NULL);
+	pthread_mutex_unlock(& mutex_users);
 }
-
 
 /* FONCTIONS SALON */
 void save_salon(char nom_salon_a_sauv[]){
@@ -403,7 +412,6 @@ void *add_to_salon(struct CLIENT *c, char nom_salon[]){
 	else{
 		perror("Le Salon est plein impossible de se connecter dedans");
 	}
-
 }
 
 void *remove_from_salon(struct CLIENT *c, char nom_salon[]){
@@ -414,11 +422,12 @@ void *remove_from_salon(struct CLIENT *c, char nom_salon[]){
 
 	strcpy(c->salon,"");
 	salons[nb_of_salon].nb_connecte = salons[nb_of_salon].nb_connecte -1; // Enlève un connecté au salon
-	
 }
 
 int nouveau_salon(char nom_salon[], int capa, char description[],int admin){
 	/* SI EN AJOUTANT UN SALON IL Y A TOUJOURS UNE PLACE DANS LE TABLEAU DE SALON ALORS: */
+	pthread_mutex_lock(& mutex);
+	int error;
 	if (nb_salon+1 < sizeof(salons)/sizeof*(salons)){
 
 		int nb_of_salon = recherche_tab_salon(nom_salon);
@@ -448,23 +457,27 @@ int nouveau_salon(char nom_salon[], int capa, char description[],int admin){
 
 		    /* ON INCREMANTE LE NOMBRE DE SALONS*/
 		    nb_salon++;
-		    return 0;		
+		    error = 0;		
 		}
 		/* SINON ON ENVOI UNE ERREUR SI LE SALON EXISTE DEJA  */
 		else{
-			return -1;
+			error = -1;
 		}
 	}
 	/* SINON ON ENVOI UNE ERREUR SI IL Y A TROP DE SALON  */
 	else{
-		return -2;
+		error = -2;
 	}
+	pthread_mutex_unlock(& mutex);
+	return error;
 }
 
 int modif_salon(char salon_base[],char new_nom_salon[], int new_capa, char new_description[]){
 
+	int error;
 	int nb_of_salon = recherche_tab_salon(salon_base);
 	int nb_of_salon2 = recherche_tab_salon(new_nom_salon);
+	pthread_mutex_lock(& mutex);
 	/* SI LE SALON EXISTE */
 	if (nb_of_salon != -1){
 		if(nb_of_salon2 ==-1){
@@ -486,26 +499,31 @@ int modif_salon(char salon_base[],char new_nom_salon[], int new_capa, char new_d
 
 			    unsave_salon(salon_base);
 			    save_salon(new_nom_salon);
-			    return 0;
+			    error = 0;
 			}
 			else{ /* SINON ON ENVOI UNE ERREUR SI ON A PAS LES DROITS POUR MODIFIER LE SALON */
-				return -1;
+				error = -1;
 			}
 		}
 		/* SINON ON ENVOI UNE ERREUR */
 		else{
-			return -3;
+			error = -3;
 		}
 	}
 	/* SINON ON ENVOI UNE ERREUR */
     else{
-    	return -2;
+    	error = -2;
     }
+    pthread_mutex_unlock(& mutex);
+    return error;
 }
 
 int rejoindre_salon(struct CLIENT *c,char nom_salon[]){
 
+	int error;
 	int nb_of_salon = recherche_tab_salon(nom_salon);
+	pthread_mutex_lock(& mutex);
+
 	/* SI LE SALON EXISTE */
 	if (nb_of_salon != -1){  
 		/* ON REGARDE SI LE SALON EXISTE */
@@ -513,52 +531,57 @@ int rejoindre_salon(struct CLIENT *c,char nom_salon[]){
 			remove_from_salon(c,c->salon);
     		add_to_salon(c,nom_salon);
     		printf("%s à rejoint le salon : %s\n",c->pseudo,nom_salon);
-    		return 0;
+    		error = 0;
 		}
 		/* SINON ON ENVOI UN MESSAGE */
 		else{
-			return -2;
+			error = -2;
 		}
 	}
 	/* SINON ON ENVOI UNE ERREUR */
     else{
-    	return -1;
+    	error = -1;
     }
-
+    pthread_mutex_unlock(& mutex);
+    return error;
 }
 
 int supprime_salon(char nom_salon[]){
 
+	int error;
 	int nb_of_salon = recherche_tab_salon(nom_salon);
+	pthread_mutex_lock(& mutex);
 	/* SI LE SALON EXISTE */
 	if (nb_of_salon != -1){
 		/*SI ON A LES DROITS DE SUPPRIMER LE SALON */
 		if(salons[nb_of_salon].admin ==1){ 
-		/* ON PLACE TOUT LES CLIENTS DU SALON QUE L'ON VEUT SUPPRIMER VERS LE GENERAL(PAR DEFAUT)*/	
-		for(int j=0; j<nb_client;j++){
-			if(strcmp(users[j].salon,nom_salon)==0){
-				int res = rejoindre_salon(&users[j],"General");
+			/* ON PLACE TOUT LES CLIENTS DU SALON QUE L'ON VEUT SUPPRIMER VERS LE GENERAL(PAR DEFAUT)*/	
+			for(int j=0; j<nb_client;j++){
+				if(strcmp(users[j].salon,nom_salon)==0){
+					int res = rejoindre_salon(&users[j],"General");
+				}
 			}
-		}
-		/* ON SUPPRIME LE SALON VOULU ET ON DECALE TOUT LES SALONS SUIVANT D'UN EN ARRIERE*/	
-		for(int k = nb_of_salon + 1; k < nb_salon; k++) {
-	        salons[k - 1] = salons[k];
-	    }
-	    /* ON DECREMANTE LE NOMBRE DE SALONS */
-	    nb_salon--; 
+			/* ON SUPPRIME LE SALON VOULU ET ON DECALE TOUT LES SALONS SUIVANT D'UN EN ARRIERE*/	
+			for(int k = nb_of_salon + 1; k < nb_salon; k++) {
+		        salons[k - 1] = salons[k];
+		    }
+		    /* ON DECREMANTE LE NOMBRE DE SALONS */
+		    nb_salon--; 
 
-	    unsave_salon(nom_salon);
-	    return 0;
+		    unsave_salon(nom_salon);
+		    error = 0;
 		}
 		/* SINON ON ENVOI UNE ERREUR SI L'UTILISATEUR N'A PAS LES DROITS POUR SUPPRIMER LE SALON  */
 		else{
-			return -1;
+			error = -1;
 		}
 	}
 	/* SINON ON ENVOI UNE ERREUR SI LE SALON N'EXISTE PAS  */
     else{
-    	return -1;
+    	error = -1;
     }
+    pthread_mutex_unlock(& mutex);
+    return error;
 }
 
 int envoi(int socket, char* buffer) {
@@ -577,7 +600,7 @@ int envoi(int socket, char* buffer) {
 
 	return 1;
 }
-// (strlen(buffer)+1)*sizeof(char)
+
 /* FONCTION DE TRANSMISSION D'UN MESSAGE D'UN CLIENT VERS L'AUTRE */
 void *transmission(void* args){
 
@@ -602,6 +625,8 @@ void *transmission(void* args){
 
 	/* BOUCLE TANT QUE LES MSG SONT DIFFÉRENTS DE "fin" */
 	while(1){
+
+		pthread_mutex_lock(& mutex_users);
 
 		/*	REMISE A À DE TOUT LES ARGUMENTS */
 		strcpy (first_arg, "");// Remise à 0 de first_arg
@@ -822,7 +847,7 @@ void *transmission(void* args){
 						strcpy(error, pseudo_serveur);
 						strcat(error, " : Fichier non distribué. L'utilisateur '");
 						strcat(error, first_arg);
-						strcat(error, "' n'est pas connecté.");
+						strcat(error, "' n'est pas connecté\n");
 
 						/* ENVOIE ERREUR À LA SOURCE */
 						int mes = envoi(c->dSC, error);
@@ -912,6 +937,7 @@ void *transmission(void* args){
 						perror("File open error");
 						exit(1);
 					}
+
 					while((count_r = read(fd, buf, MAX_BUF))>0)
 					{
 						count_w = 0;
@@ -1038,6 +1064,7 @@ void *transmission(void* args){
 			
 			case 6: /* DONNE TOUTE INFOS SUR LE SALON EN QUESTION AINSI QUE LES 10 DERNIERS MESSAGES AVEC /salonInfo */
 
+				pthread_mutex_lock(& mutex);
 				id_salon = recherche_tab_salon(c->salon);
 				sprintf(first_arg, "%d", id_salon);
 				sprintf(second_arg, "%d", salons[id_salon].nb_connecte);
@@ -1058,11 +1085,24 @@ void *transmission(void* args){
 				strcat(buffer, third_arg);
 				strcat(buffer, " dans ");
 				strcat(buffer, salons[id_salon].nom_salon);
-				strcat(buffer, "\n[ 10 DERNIERS MESSAGES DANS LE SALON ]\n");
+				strcat(buffer, "\n");
+				strcat(buffer, pseudo_serveur);
+				strcat(buffer, " : Clients Présents : ");
+				for (;pseudo_id < nb_client;pseudo_id++){
+					if(strcmp(users[pseudo_id].salon,salons[id_salon].nom_salon)==0){
 
+						strcat(buffer,"[");
+						strcat(buffer,users[pseudo_id].pseudo);
+						strcat(buffer,"] ");
+					}
+				}
 				char* last_messages[10];
 				int nb_messages = get_last_messages(last_messages, salons[id_salon].nom_salon);
 
+				if (nb_messages > 0){
+					strcat(buffer, "\n[ 10 DERNIERS MESSAGES DANS LE SALON ]\n");
+				}
+				
 				int i = 0;
 				while(i < nb_messages){
 					strcat(buffer, last_messages[i]);
@@ -1082,10 +1122,13 @@ void *transmission(void* args){
 					pthread_exit(NULL);
 				}
 
+				pthread_mutex_unlock(& mutex);
+
 				break;
 			
 			case 7: /* LISTE TOUT LES SALON PRESENT SUR LE SERVEUR AVEC /listSalon */
 
+				pthread_mutex_lock(& mutex);
 				for(int j=0; j<nb_salon; j++){
 					sprintf(second_arg, "\n%d", j);
 			    	strcat(first_arg, second_arg);
@@ -1120,6 +1163,7 @@ void *transmission(void* args){
 					perror("Socket fermée envoie fichier\n");
 					pthread_exit(NULL);
 				}
+				pthread_mutex_unlock(& mutex);
 				break;
 
 			case 8: /* MODIFIER LE SALON VOULU avec /modifSalon nomsalon newnomsalon newcapacite newdescription */
@@ -1452,9 +1496,27 @@ void *transmission(void* args){
 				break;
 
 			default:
-				printf(" ");
+
+				strcpy(buffer, pseudo_serveur);
+				strcat(buffer, " : La commande \"");
+				strcat(buffer, command);
+				strcat(buffer, "\" n'est pas reconnu par le serveur\n");
+
+				/* ENVOIE DU MESSAGE */
+				mes = envoi(c->dSC, buffer); 
+
+				if (mes<0){
+					perror("Erreur transmission mot C1vC2\n");
+					pthread_exit(NULL);
+				}
+				if (mes==0){
+					perror("Socket fermée transmission mot C1vC2\n");
+					pthread_exit(NULL);
+				}
+
+				break;	
 		}
-		
+		pthread_mutex_unlock(& mutex_users);
 	}
 	
 	printf("La discussion est terminée\n");
@@ -1495,7 +1557,7 @@ void init_salon(){
 		int id_channel = 0;
 		for(;id_channel < nb_channel;id_channel++){
 			int admin = 1;
-			if (strcmp(channel_list[id_channel], "General")){
+			if (strcmp(channel_list[id_channel], "General")==0){
 				admin = 0;
 			}
  			nouveau_salon(channel_list[id_channel],100,"Salon récupéré par sauvegarde", admin);
@@ -1567,7 +1629,11 @@ int main(int argc, char* argv[]){
 	}
 	struct sockaddr_in aCF;
 
+	pthread_mutex_lock(& mutex_users);
+
 	users = (CLIENT *) malloc(sizeof(CLIENT)*2);
+
+	pthread_mutex_unlock(& mutex_users);
 
 	init_salon();
 
@@ -1579,6 +1645,8 @@ int main(int argc, char* argv[]){
 
 		dSC = accept(dSE, (struct sockaddr*) &aC, &lg);
 		dSF = accept(dSE_f, (struct sockaddr*)&aCF, &lg);
+
+		pthread_mutex_lock(& mutex_users);
 
 		if (nb_client > 0){
 			users = (CLIENT *) realloc(users, sizeof(CLIENT)*(nb_client+1));
@@ -1633,6 +1701,8 @@ int main(int argc, char* argv[]){
 		}
 
 		nb_client++;
+
+		pthread_mutex_unlock(& mutex_users);
 	}
 	close(dSE);
 	close(dSE_f);

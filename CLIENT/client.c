@@ -22,6 +22,7 @@ const char d[] = " ";
 
 char port[5];
 char addr[15];
+char pseudo[100];
 
 /* SOCKET COTE SERVEUR */
 int dS;
@@ -96,28 +97,30 @@ void *envoi_file(char file_name[]){
 	char buf[MAX_BUF];
 	char* bufptr;
 
-	printf("Fichier à envoyer : %s", file);
-
 	fd = open(file, O_RDONLY); 
 	if (fd == -1){
-		perror("File open error");
-		exit(1);
-	}
-	while((count_r = read(fd, buf, MAX_BUF))>0){
-		count_w = 0;
-		bufptr = buf;
-		while (count_w < count_r){
-			count_r -= count_w;
-			bufptr += count_w;
-			count_w = write(dSF, bufptr, count_r);
-			if (count_w == -1){
-				perror("Socket read error");
-				exit(1);
+		puts("\033[1m");
+		printf("Le fichier à envoyer \"%s\" n'est pas présent dans le dossier : %s\n", file_name, path_folder_send);;
+		puts("\033[0m");
+		close(dSF);
+		dSF = -1;
+	} else {
+		while((count_r = read(fd, buf, MAX_BUF))>0){
+			count_w = 0;
+			bufptr = buf;
+			while (count_w < count_r){
+				count_r -= count_w;
+				bufptr += count_w;
+				count_w = write(dSF, bufptr, count_r);
+				if (count_w == -1){
+					perror("Socket read error");
+					exit(1);
+				}
 			}
 		}
+		close(dSF);
+		dSF = -1;
 	}
-	close(dSF);
-	dSF = -1;
 }
 
 /* FONCTION RECEPTION DE FICHIER */
@@ -146,6 +149,7 @@ void *recevoir_file(char file_name[]){
 	}
 
 	int count = 1;
+	int count_max = 0;
 	char buf[TMAX];
 
 	char file[100];
@@ -157,12 +161,13 @@ void *recevoir_file(char file_name[]){
 	int fd;
 
 	puts("\033[1m");
-	printf("Fichier du serveur reçu nommé : %s\n", file_name);
-
 	fd = open(file, O_WRONLY | O_CREAT, 0666);
 	while (count > 0){
 		count = read(dSF, buf, TMAX);
 		write(fd, buf, count);
+		if (count > count_max){
+			count_max = count;
+		}
 	}
 	strcpy(buf, "");
 	write(dSF, buf, 0);
@@ -171,8 +176,10 @@ void *recevoir_file(char file_name[]){
 		printf("Ne peux pas créer le fichier à l'emplacement suivante : %s\n", file);
 		perror("Read error");
 		exit(1);
-	} else {
+	} else if (count_max > 0){
 		printf("Fichier créé et placé à l'emplacement suivant : %s\n", file);
+	} else {
+		remove(file);
 	}
 	puts("\033[0m");
 	close(dSF);
@@ -187,46 +194,68 @@ void *envoie(void *args){
 	while(strcmp(mot,"/fin\n")!=0){
 		saisie(mot);
 		strcpy(mot_to_send, mot);
+
 		char *p = strtok(mot, d);
 
 		if (strcmp(mot,"/fileList\n")==0){
 			getFile();
 		}
 		else{
-			/* ENVOIE DU MESSAGE */
-			int mes = send(dS, mot_to_send, sizeof(mot_to_send), 0);
+			int send_message = 0;
+			if (strcmp(p,"/file")==0){
 
-			/* GESTION DES ERREURS DE L'ENVOIE DU MESSAGE */
-			if (mes<0){
-				perror("Erreur envoie mot\n");
-				pthread_exit(NULL);
-			}
-			if (mes==0){
-				perror("Socket fermée envoie mot\n");
-				pthread_exit(NULL);
-			}
-			if(strcmp(p,"/getfile")==0){
+				char pseudo_client[100];
 				p = strtok(NULL, d);
-				if (p != NULL){
-					recevoir_file(p);
+				strcpy(pseudo_client, p);
+
+				if (strcmp(pseudo_client, pseudo) == 0){
+					send_message = 1;
+					puts("\033[1m");
+					printf( "%c[2K", ASCII_ESC );
+					printf( "%c[A", ASCII_ESC );
+					printf( "%c[2K", ASCII_ESC );
+					printf( "%c[A", ASCII_ESC );
+					printf("\033[1;31m[SERVEUR]\033[1;37m : Vous ne pouvez pas envoyer un fichier à vous même\n");
+					puts("\033[0m");
+				} else {
+					p = strtok(NULL, d);
+					if (p != NULL){
+						char file_name[TMAX];
+						strcpy(file_name, p);
+						strtok(file_name,"\n");
+						envoi_file(file_name);
+					} else {
+						send_message = 1;
+						puts("\033[1m");
+						printf( "%c[2K", ASCII_ESC );
+						printf( "%c[A", ASCII_ESC );
+						printf( "%c[2K", ASCII_ESC );
+						printf( "%c[A", ASCII_ESC );
+						printf("\033[1;31m[SERVEUR]\033[1;37m : Pas assez d'arguments, veuillez consulter le /man pour voir comment utiliser la commande\n");
+						puts("\033[0m");
+					}
 				}
-				
 			}
-			else if (strcmp(p,"/file")==0){
+			if(send_message == 0){
 
-				char pseudo[100];
-				p = strtok(NULL, d);
-				strcpy(pseudo, p);
+				/* ENVOIE DU MESSAGE */
+				int mes = send(dS, mot_to_send, sizeof(mot_to_send), 0);
 
-				p = strtok(NULL, d);
-
-				if (p != NULL){
-					char file_name[TMAX];
-					strcpy(file_name, p);
-					strtok(file_name, "\n");
-					envoi_file(file_name);
+				/* GESTION DES ERREURS DE L'ENVOIE DU MESSAGE */
+				if (mes<0){
+					perror("Erreur envoie mot\n");
+					pthread_exit(NULL);
 				}
-				
+				if (mes==0){
+					perror("Socket fermée envoie mot\n");
+					pthread_exit(NULL);
+				}
+				if(strcmp(p,"/getfile")==0){
+					p = strtok(NULL, d);
+					if (p != NULL){
+						recevoir_file(p);
+					}
+				}
 			}
 		}
 	}
@@ -274,27 +303,11 @@ void *recoie(void* args){
 				recv = strtok(NULL, d);
 				strcpy(file_name, recv);
 
-				/*char content[TMAX] = "";
-				recv = strtok(NULL, d);
-				while(recv != NULL){
-					strcat(content, recv);
-					strcat(content, " ");
-					recv = strtok(NULL, d);
-				}
-				content[strlen(content)-1] = '\0';
-
-				char file_path[100];
-				strcpy(file_path, path_folder_recv);
-				strcat(file_path, file_name);
-
-				FILE* fps = fopen(file_path, "w");*/
-
 				puts("\033[1m");
 				printf( "%c[2K", ASCII_ESC );
 				printf( "%c[A", ASCII_ESC );
 				printf( "%c[2K", ASCII_ESC );
 				printf( "%c[A", ASCII_ESC );
-				printf("Fichier de %s reçu nommé : %s\n", pseudoOther, file_name);
 				recevoir_file(file_name);
 				puts("\033[0m");
 
@@ -306,8 +319,7 @@ void *recoie(void* args){
 				printf( "%c[2K", ASCII_ESC );
 				printf( "%c[A", ASCII_ESC );
 				puts("\033[1m");
-				if (strcmp(mot_to_print,"")!=0)
-				{
+				if (strcmp(mot_to_print,"")!=0){
 					printf("%s", mot_to_print);
 				}
 				puts("\033[0m");
@@ -324,7 +336,6 @@ int main(int argc, char* argv[]){
 	strcpy(addr, argv[1]);
 
 	/* ENTREE DU PSEUDO PAR LE CLIENT */
-	char pseudo[100];
 	char buffer[100];
 
 	printf("Bienvenue dans le chat !\n");
@@ -379,8 +390,6 @@ int main(int argc, char* argv[]){
 	printf("%s", buffer);
 	fgets(pseudo,100,stdin);
 	strtok(pseudo, "\n");
-
-	printf("Pseudo à envoyer : %s\n", pseudo);
 
 	int taille_pseudo = sizeof(pseudo);
 	/* ENVOIE DE LA TAILLE DU PSEUDO AU CLIENT */
