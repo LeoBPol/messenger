@@ -327,7 +327,6 @@ void save_last_messages(char last_message[], char nom_salon[]){
 		} 
 		
 		for(;id_message < nb_message;id_message++){
-			printf("message_list[%d] : %s\n", id_message, message_list[id_message]);
  			fputs(message_list[id_message], fps);
  			fputs("\n", fps);
 		}
@@ -552,6 +551,10 @@ int supprime_salon(char nom_salon[]){
 					/* CREATION DU MESSAGE A ENVOYER*/
 					char tmp_msg[TMAX];
 					strcpy(tmp_msg, pseudo_serveur);
+					strcat(tmp_msg, " : Le salon \"");
+					strcat(tmp_msg, nom_salon);
+					strcat(tmp_msg, "\" a été supprimé\n");
+					strcat(tmp_msg, pseudo_serveur);
 					strcat(tmp_msg, " : Vous avez rejoint le salon General\n");
 					/* ENVOIE DU MESSAGE */
 					int mes = envoi(users[j].dSC, tmp_msg); 
@@ -935,7 +938,6 @@ void *transmission(void* args){
 						perror("File open error");
 						exit(1);
 					}
-
 					while((count_r = read(fd, buf, MAX_BUF))>0)
 					{
 						count_w = 0;
@@ -1294,7 +1296,7 @@ void *transmission(void* args){
 				
 				pseudo_id = 0;
 				for (;pseudo_id < nb_client;pseudo_id++){
-					if(strcmp(users[pseudo_id].salon,c->salon)==0){
+					if(strcmp(users[pseudo_id].salon,c->salon)==0 && strcmp(users[pseudo_id].pseudo,c->pseudo)!=0){
 						int dSC = users[pseudo_id].dSC;
 
 						strcpy(buffer, c->pseudo);
