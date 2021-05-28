@@ -626,7 +626,7 @@ void *transmission(void* args){
 	/* BOUCLE TANT QUE LES MSG SONT DIFFÉRENTS DE "fin" */
 	while(1){
 
-		pthread_mutex_lock(& mutex_users);
+		//pthread_mutex_lock(& mutex_users);
 
 		/*	REMISE A À DE TOUT LES ARGUMENTS */
 		strcpy (first_arg, "");// Remise à 0 de first_arg
@@ -1064,6 +1064,7 @@ void *transmission(void* args){
 			
 			case 6: /* DONNE TOUTE INFOS SUR LE SALON EN QUESTION AINSI QUE LES 10 DERNIERS MESSAGES AVEC /salonInfo */
 
+				pseudo_id = 0;
 				pthread_mutex_lock(& mutex);
 				id_salon = recherche_tab_salon(c->salon);
 				sprintf(first_arg, "%d", id_salon);
@@ -1102,7 +1103,7 @@ void *transmission(void* args){
 				if (nb_messages > 0){
 					strcat(buffer, "\n[ 10 DERNIERS MESSAGES DANS LE SALON ]\n");
 				}
-				
+
 				int i = 0;
 				while(i < nb_messages){
 					strcat(buffer, last_messages[i]);
@@ -1497,26 +1498,28 @@ void *transmission(void* args){
 
 			default:
 
-				strcpy(buffer, pseudo_serveur);
-				strcat(buffer, " : La commande \"");
-				strcat(buffer, command);
-				strcat(buffer, "\" n'est pas reconnu par le serveur\n");
+				if (strcmp(command, "") != 0){
+					strcpy(buffer, pseudo_serveur);
+					strcat(buffer, " : La commande \"");
+					strcat(buffer, command);
+					strcat(buffer, "\" n'est pas reconnu par le serveur\n");
 
-				/* ENVOIE DU MESSAGE */
-				mes = envoi(c->dSC, buffer); 
+					/* ENVOIE DU MESSAGE */
+					mes = envoi(c->dSC, buffer); 
 
-				if (mes<0){
-					perror("Erreur transmission mot C1vC2\n");
-					pthread_exit(NULL);
-				}
-				if (mes==0){
-					perror("Socket fermée transmission mot C1vC2\n");
-					pthread_exit(NULL);
+					if (mes<0){
+						perror("Erreur transmission mot C1vC2\n");
+						pthread_exit(NULL);
+					}
+					if (mes==0){
+						perror("Socket fermée transmission mot C1vC2\n");
+						pthread_exit(NULL);
+					}
 				}
 
 				break;	
 		}
-		pthread_mutex_unlock(& mutex_users);
+		//pthread_mutex_unlock(& mutex_users);
 	}
 	
 	printf("La discussion est terminée\n");
@@ -1532,10 +1535,7 @@ void init_salon(){
 	int nb_channel = 0;
 
 	FILE *fps = fopen(path_folder_channel_list, "r");
-	if (fps == NULL){
-		printf("Ne peux pas ouvrir le fichier suivant : %s", path_folder_channel_list);
-	}
-	else {
+	if (fps != NULL) {
 		printf("Fichier ouvert : %s\n", path_folder_channel_list);
 		char file_content[TMAX] = "";
 		char str[1000] = "";
@@ -1629,11 +1629,11 @@ int main(int argc, char* argv[]){
 	}
 	struct sockaddr_in aCF;
 
-	pthread_mutex_lock(& mutex_users);
+	//pthread_mutex_lock(& mutex_users);
 
 	users = (CLIENT *) malloc(sizeof(CLIENT)*2);
 
-	pthread_mutex_unlock(& mutex_users);
+	//pthread_mutex_unlock(& mutex_users);
 
 	init_salon();
 
@@ -1646,7 +1646,7 @@ int main(int argc, char* argv[]){
 		dSC = accept(dSE, (struct sockaddr*) &aC, &lg);
 		dSF = accept(dSE_f, (struct sockaddr*)&aCF, &lg);
 
-		pthread_mutex_lock(& mutex_users);
+		//pthread_mutex_lock(& mutex_users);
 
 		if (nb_client > 0){
 			users = (CLIENT *) realloc(users, sizeof(CLIENT)*(nb_client+1));
@@ -1702,7 +1702,7 @@ int main(int argc, char* argv[]){
 
 		nb_client++;
 
-		pthread_mutex_unlock(& mutex_users);
+		//pthread_mutex_unlock(& mutex_users);
 	}
 	close(dSE);
 	close(dSE_f);
