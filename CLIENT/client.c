@@ -1,20 +1,4 @@
-#include <sys/socket.h>
-#include <sys/types.h>
-#include <netinet/in.h>
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <arpa/inet.h>
-#include <pthread.h>
-#include <dirent.h>
-#include <fcntl.h>
-
-#define TMAX 65000 /* TAILLE MAXIMALE D'UN MESSAGE EN OCTET */
-#define ASCII_ESC 27
-
-#define MAX_BUF 1048576
-#define S_PORT  6398
+#include "client.h"
 
 const char path_folder_send[20] = "./file_to_send/";
 const char path_folder_recv[20] = "./file_received/";
@@ -42,7 +26,7 @@ void saisie(char *mot){
 }
 
 /* FONCTION DE RÉCUPÉRATION DES FICHIERS A ENVOYER */
-int getFile(){
+void getFile(){
     struct dirent *dir;
     /*opendir() renvoie un pointeur de type DIR.*/
 
@@ -60,7 +44,6 @@ int getFile(){
         puts("\033[0m");
         closedir(d);
     }
-    return 0;
 }
 
 /* FONCTION D'ENVOIE DE MESSAGES */
@@ -332,98 +315,103 @@ void *recoie(void* args){
 
 int main(int argc, char* argv[]){ 
 
-	strcpy(port, argv[2]);
-	strcpy(addr, argv[1]);
+	if (argc < 3){
+		printf("Veuillez exécuter le serveur de cette manière :\n");
+		printf("./client ADDRESSE_IP PORT\n");
+	} else {
 
-	/* ENTREE DU PSEUDO PAR LE CLIENT */
-	char buffer[100];
+		strcpy(port, argv[2]);
+		strcpy(addr, argv[1]);
 
-	printf("Bienvenue dans le chat !\n");
+		/* ENTREE DU PSEUDO PAR LE CLIENT */
+		char buffer[100];
 
-	/* create a socket */
-	dSF = socket(PF_INET, SOCK_STREAM, 0);
-	if (dSF<0){
-		perror("Erreur à la création du socket pour les fichiers\n");
-		exit(-1);
+		printf("Bienvenue dans le chat !\n");
+
+		/* create a socket */
+		dSF = socket(PF_INET, SOCK_STREAM, 0);
+		if (dSF<0){
+			perror("Erreur à la création du socket pour les fichiers\n");
+			exit(-1);
+		}
+
+		/* server address */ 
+		struct sockaddr_in serv_name;
+		serv_name.sin_family = AF_INET;
+		inet_aton(argv[1], &serv_name.sin_addr);
+		serv_name.sin_port = htons((short)atoi(argv[2])+1);
+
+		/* connect to the server */
+		int res = connect(dSF, (struct sockaddr*)&serv_name, sizeof(serv_name));
+		if (res<0){ 
+			perror("Erreur de connexion au serveur\n");
+			exit(-1);
+		}
+		
+		/* CREATTION DU SOCKET ET VERIFICATION */
+		dS = socket(PF_INET, SOCK_STREAM, 0);
+		if (dS<0){
+			perror("Erreur à la création du socket\n");
+			return -1;
+		}
+
+		/* ADRESSAGE DU SOCKET ET VERIFICATION */
+		struct sockaddr_in as;
+		as.sin_family = AF_INET;
+		res = inet_pton(AF_INET, argv[1], &(as.sin_addr));
+		as.sin_port = htons((short)atoi(argv[2]));
+		if (res<=0){
+			perror("Erreur d'adressage\n");
+			return -1;
+		}
+
+		/* CONNEXION AU SERVEUR ET VERIFICATION */
+		socklen_t lgA = sizeof(struct sockaddr_in);
+		res = connect(dS, (struct sockaddr *) &as, lgA);
+		if (res<0){ 
+			perror("Erreur de connexion au serveur\n");
+			return -1;
+		}
+
+		/* RECEVOIR LA DEMANDE DE PSEUDO */
+		recv(dS, buffer, sizeof(buffer), 0);
+		printf("%s", buffer);
+		fgets(pseudo,100,stdin);
+		strtok(pseudo, "\n");
+
+		int taille_pseudo = sizeof(pseudo);
+		/* ENVOIE DE LA TAILLE DU PSEUDO AU CLIENT */
+		send(dS, &taille_pseudo, sizeof(int), 0);
+
+		/* ENVOIE DU PSEUDO AU SERVEUR */
+		send(dS, pseudo, sizeof(pseudo), 0);
+
+		printf("Debut de la discussion\n");
+
+		/* CREATION DES THREADS */
+		if( pthread_create(&threadR, NULL, recoie, NULL) ){
+			perror("creation threadGet erreur");
+			return EXIT_FAILURE;
+		}
+
+		if( pthread_create(&threadS, NULL, envoie, NULL ) ){
+			perror("creation threadS erreur");
+			return EXIT_FAILURE;
+		}
+
+		/* ATTENTE DE LA FIN DES THREADS */
+		if(pthread_join(threadS, NULL)){ 
+			perror("Erreur fermeture threadS");
+			return EXIT_FAILURE;
+		}
+
+		pthread_cancel(threadS);
+		pthread_cancel(threadR);
+
+		printf("Fin de la conversation\n");
+		close(dS);
+		close(dSF);
+
+		return 0;
 	}
-
-	/* server address */ 
-	struct sockaddr_in serv_name;
-	serv_name.sin_family = AF_INET;
-	inet_aton(argv[1], &serv_name.sin_addr);
-	serv_name.sin_port = htons((short)atoi(argv[2])+1);
-
-	/* connect to the server */
-	int res = connect(dSF, (struct sockaddr*)&serv_name, sizeof(serv_name));
-	if (res<0){ 
-		perror("Erreur de connexion au serveur\n");
-		exit(-1);
-	}
-	
-	/* CREATTION DU SOCKET ET VERIFICATION */
-	dS = socket(PF_INET, SOCK_STREAM, 0);
-	if (dS<0){
-		perror("Erreur à la création du socket\n");
-		return -1;
-	}
-
-	/* ADRESSAGE DU SOCKET ET VERIFICATION */
-	struct sockaddr_in as;
-	as.sin_family = AF_INET;
-	res = inet_pton(AF_INET, argv[1], &(as.sin_addr));
-	as.sin_port = htons((short)atoi(argv[2]));
-	if (res<=0){
-		perror("Erreur d'adressage\n");
-		return -1;
-	}
-
-	/* CONNEXION AU SERVEUR ET VERIFICATION */
-	socklen_t lgA = sizeof(struct sockaddr_in);
-	res = connect(dS, (struct sockaddr *) &as, lgA);
-	if (res<0){ 
-		perror("Erreur de connexion au serveur\n");
-		return -1;
-	}
-
-	/* RECEVOIR LA DEMANDE DE PSEUDO */
-	recv(dS, buffer, sizeof(buffer), 0);
-	printf("%s", buffer);
-	fgets(pseudo,100,stdin);
-	strtok(pseudo, "\n");
-
-	int taille_pseudo = sizeof(pseudo);
-	/* ENVOIE DE LA TAILLE DU PSEUDO AU CLIENT */
-	send(dS, &taille_pseudo, sizeof(int), 0);
-
-	/* ENVOIE DU PSEUDO AU SERVEUR */
-	send(dS, pseudo, sizeof(pseudo), 0);
-
-	printf("Debut de la discussion\n");
-
-	/* CREATION DES THREADS */
-	if( pthread_create(&threadR, NULL, recoie, NULL) ){
-		perror("creation threadGet erreur");
-		return EXIT_FAILURE;
-	}
-
-	if( pthread_create(&threadS, NULL, envoie, NULL ) ){
-		perror("creation threadS erreur");
-		return EXIT_FAILURE;
-	}
-
-	/* ATTENTE DE LA FIN DES THREADS */
-	if(pthread_join(threadS, NULL)){ 
-		perror("Erreur fermeture threadS");
-		return EXIT_FAILURE;
-	}
-
-	pthread_cancel(threadS);
-	pthread_cancel(threadR);
-
-	printf("Fin de la conversation\n");
-	close(dS);
-	close(dSF);
-
-	return 0;
-
 }

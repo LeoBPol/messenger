@@ -171,10 +171,6 @@ void transmit_file(struct CLIENT *src, struct CLIENT *dest, char file_name[], ch
 	src->dSF = -1;
 }
 
-void printstruct(struct CLIENT c){
-	printf("%d - %s\n", c.dSC, c.pseudo);
-}
-
 int command_id(char* command){
 	int id_command = 0;
 	while (id_command < sizeof(command_list)/sizeof(command_list[0])){
@@ -206,7 +202,6 @@ void supprimer_client(struct CLIENT *c){
 	}
 
 	for (; client_to_move_id <  nb_client; client_to_move_id++){
-		printstruct(users[client_to_move_id]);
 		memmove(&users[client_to_move_id], &users[client_to_move_id + 1], sizeof(users[client_to_move_id + 1]));
     }
 
@@ -300,12 +295,9 @@ void save_last_messages(char last_message[], char nom_salon[]){
 	strcat(file_name, nom_salon);
 	strcat(file_name, ".txt");
 
-	printf("file_name : %s\n", file_name);
-
 	FILE* fps = fopen(file_name, "r");
 
 	if (fps == NULL){
-		//printf("Ne peux pas ourvrir le fichier à l'emplacement suivante : %s", file_name);
 		fps = fopen(file_name, "w");
 		fputs(last_message, fps);
  		fputs("\n", fps);
@@ -353,8 +345,6 @@ int get_last_messages(char* last_messages[], char nom_salon[]){
 	strcpy(file_name, path_folder_channel_messages);
 	strcat(file_name, nom_salon);
 	strcat(file_name, ".txt");
-
-	printf("file_name : %s\n", file_name);
 
 	FILE* fps = fopen(file_name, "r");
 
@@ -526,7 +516,7 @@ int rejoindre_salon(struct CLIENT *c,char nom_salon[]){
 
 	/* SI LE SALON EXISTE */
 	if (nb_of_salon != -1){  
-		/* ON REGARDE SI LE SALON EXISTE */
+		/* ON REGARDE SI LA CAPACITE EST OK */
 		if(salons[nb_of_salon].nb_connecte + 1 <= salons[nb_of_salon].capacite){
 			remove_from_salon(c,c->salon);
     		add_to_salon(c,nom_salon);
@@ -550,7 +540,7 @@ int supprime_salon(char nom_salon[]){
 
 	int error;
 	int nb_of_salon = recherche_tab_salon(nom_salon);
-	pthread_mutex_lock(& mutex);
+	//pthread_mutex_lock(& mutex);
 	/* SI LE SALON EXISTE */
 	if (nb_of_salon != -1){
 		/*SI ON A LES DROITS DE SUPPRIMER LE SALON */
@@ -559,6 +549,21 @@ int supprime_salon(char nom_salon[]){
 			for(int j=0; j<nb_client;j++){
 				if(strcmp(users[j].salon,nom_salon)==0){
 					int res = rejoindre_salon(&users[j],"General");
+					/* CREATION DU MESSAGE A ENVOYER*/
+					char tmp_msg[TMAX];
+					strcpy(tmp_msg, pseudo_serveur);
+					strcat(tmp_msg, " : Vous avez rejoint le salon General\n");
+					/* ENVOIE DU MESSAGE */
+					int mes = envoi(users[j].dSC, tmp_msg); 
+
+					if (mes<0){
+						perror("Erreur transmission mot C1vC2\n");
+						pthread_exit(NULL);
+					}
+					if (mes==0){
+						perror("Socket fermée transmission mot C1vC2\n");
+						pthread_exit(NULL);
+					}
 				}
 			}
 			/* ON SUPPRIME LE SALON VOULU ET ON DECALE TOUT LES SALONS SUIVANT D'UN EN ARRIERE*/	
@@ -580,7 +585,7 @@ int supprime_salon(char nom_salon[]){
     else{
     	error = -1;
     }
-    pthread_mutex_unlock(& mutex);
+    //pthread_mutex_unlock(& mutex);
     return error;
 }
 
@@ -625,8 +630,6 @@ void *transmission(void* args){
 
 	/* BOUCLE TANT QUE LES MSG SONT DIFFÉRENTS DE "fin" */
 	while(1){
-
-		//pthread_mutex_lock(& mutex_users);
 
 		/*	REMISE A À DE TOUT LES ARGUMENTS */
 		strcpy (first_arg, "");// Remise à 0 de first_arg
@@ -722,7 +725,6 @@ void *transmission(void* args){
 						strcat(buffer, " : ");
 						strcat(buffer, first_arg);
 						strcat(buffer, "\n");
-						printf("%s",buffer);
 						/* ENVOI DU MESSAGE */
 						int mes = envoi(users[clientID].dSC, buffer);
 
@@ -807,8 +809,6 @@ void *transmission(void* args){
 				}
 
 				clientID = -1;
-
-				printf("LISTE PSEUDO TRANSMISE\n\n");
 				break;
 
 			case 2: /* COUPE LA CONNEXION DU CLIENT QUI LE DEMANDE AVEC /fin */
@@ -888,8 +888,6 @@ void *transmission(void* args){
 				p = strtok(NULL, d);
 
 				if (p == NULL){
-
-					//printf("wshhhh 1\n");
 
 					/* ENVOIE LISTE DES FICHIERS A LA SOURCE */
 					char file_list_to_send[TMAX];
@@ -985,18 +983,18 @@ void *transmission(void* args){
 					/* ON CREE LE NOUVEAU SALON */
 					int res = nouveau_salon(first_arg,capa,third_arg,1);
 					if(res == 0){ // SI TOUT EST BON
-						/* ON ENREGISTRE LE NOUVEAU SALON */
-						save_salon(first_arg);
-
 						/* ON REJOINT LE NOUVEAU SALON */
 		    			mes = rejoindre_salon(c,first_arg);
+
+		    			/* ON ENREGISTRE LE NOUVEAU SALON */
+						save_salon(first_arg);
 
 						/* ENVOIE DU MESSAGE DU CLIENT 1 VERS LE CLIENT 2*/
 						strcpy(fourth_arg, pseudo_serveur);
 						strcat(fourth_arg, " : Le salon ");
 						strtok(first_arg, "\n");
 						strcat(fourth_arg, first_arg);
-						strcat(fourth_arg, " a été crée !\n");
+						strcat(fourth_arg, " a été crée et vous l'avez rejoint !\n");
 						int mes = send(c->dSC, fourth_arg, sizeof(fourth_arg), 0);
 
 						/* GESTION DES ERREURS DE L'ENVOIE DU MESSAGE */
@@ -1497,8 +1495,10 @@ void *transmission(void* args){
 				break;
 
 			default:
-
 				if (strcmp(command, "") != 0){
+					if(strcmp(command, "\n") == 0){
+						strcpy(command,"");
+					}
 					strcpy(buffer, pseudo_serveur);
 					strcat(buffer, " : La commande \"");
 					strcat(buffer, command);
@@ -1519,7 +1519,6 @@ void *transmission(void* args){
 
 				break;	
 		}
-		//pthread_mutex_unlock(& mutex_users);
 	}
 	
 	printf("La discussion est terminée\n");
@@ -1568,145 +1567,141 @@ void init_salon(){
 
 int main(int argc, char* argv[]){
 
-	strcpy(port, argv[1]);
+	if (argc < 2){
+		printf("Veuillez exécuter le serveur de cette manière :\n");
+		printf("./serveur PORT\n");
+	} else {
 
-	/* INITIALISATION DU SÉMAPHORE  */
-	int sem = sem_init(&semaphore, 0, NB_CLIENT_MAX);
-	if(sem == -1){
-	    perror("Problème à l'intitialisation du sémaphore ");
-	}
+		strcpy(port, argv[1]);
 
-	/* CREATTION DU SOCKET ET VERIFICATION */
-	dSE = socket(PF_INET, SOCK_STREAM, 0);
-	if (dSE<0){
-		perror("Erreur à la création du socket d'écoute ");
-		return -1;
-	}
-
-	/* NOMMAGE DU SOCKET ET VERIFICATION */
-	struct sockaddr_in adServ;
-	adServ.sin_family = AF_INET;
-	adServ.sin_addr.s_addr = INADDR_ANY;
-	adServ.sin_port = htons((short)atoi(argv[1]));
-	int verif = bind(dSE, (struct sockaddr*)&adServ, sizeof(adServ));
-	if (verif<0){
-		perror("Erreur au nommage du socket d'écoute ");
-		return -1;
-	}
-
-	/* MISE EN ECOUTE DES CONNEXIONS ENTRANTES ET VERIFICATION */
-	verif = listen(dSE,7);
-	if (verif<0){
-		perror("Erreur lors de la mise à l'écoute du socket ");
-		return -1;
-	}
-	struct sockaddr_in aC;
-	socklen_t lg = sizeof(struct sockaddr_in);
-
-	/* CREATTION DU SOCKET FICHIER ET VERIFICATION */
-	dSE_f = socket(PF_INET, SOCK_STREAM, 0);
-	if (dSE_f<0){
-		perror("Erreur à la création du socket d'écoute pour les fichiers");
-		return -1;
-	}
-
-	/* NOMMAGE DU SOCKET FICHIER ET VERIFICATION */
-	struct sockaddr_in adServF;
-	adServF.sin_family = AF_INET;
-	adServF.sin_addr.s_addr = INADDR_ANY;
-	adServF.sin_port = htons((short)atoi(argv[1])+1);
-	verif = bind(dSE_f, (struct sockaddr*)&adServF, sizeof(adServF));
-	if (verif<0){
-		perror("Erreur au nommage du socket d'écoute pour les fichiers");
-		return -1;
-	}
-
-	/* MISE EN ECOUTE DES CONNEXIONS ENTRANTES ET VERIFICATION SOCKET FICHIER */
-	verif = listen(dSE_f,7);
-	if (verif<0){
-		perror("Erreur lors de la mise à l'écoute du socket pour les fichiers");
-		return -1;
-	}
-	struct sockaddr_in aCF;
-
-	//pthread_mutex_lock(& mutex_users);
-
-	users = (CLIENT *) malloc(sizeof(CLIENT)*2);
-
-	//pthread_mutex_unlock(& mutex_users);
-
-	init_salon();
-
- 	printf("En attente des clients\n");
-	while(1){
-
-		int dSC;
-		int dSF;
-
-		dSC = accept(dSE, (struct sockaddr*) &aC, &lg);
-		dSF = accept(dSE_f, (struct sockaddr*)&aCF, &lg);
-
-		//pthread_mutex_lock(& mutex_users);
-
-		if (nb_client > 0){
-			users = (CLIENT *) realloc(users, sizeof(CLIENT)*(nb_client+1));
-		} else {
-			users = (CLIENT *) malloc(sizeof(CLIENT)*2);
+		/* INITIALISATION DU SÉMAPHORE  */
+		int sem = sem_init(&semaphore, 0, NB_CLIENT_MAX);
+		if(sem == -1){
+		    perror("Problème à l'intitialisation du sémaphore ");
 		}
 
-		/* CONNEXION AVEC UN CLIENT */
-		users[nb_client].dSC = dSC;
-		users[nb_client].dSF = dSF;
-
-		if (users[nb_client].dSC<0 || users[nb_client].dSF<0){
-			perror("Erreur de connexion avec le client");
+		/* CREATTION DU SOCKET ET VERIFICATION */
+		dSE = socket(PF_INET, SOCK_STREAM, 0);
+		if (dSE<0){
+			perror("Erreur à la création du socket d'écoute ");
 			return -1;
 		}
 
-		/* CONNEXION AVEC UN CLIENT */
-		sem = sem_wait(&semaphore);
-		if(sem == -1){
-			perror("A problem occured (sem wait)");
+		/* NOMMAGE DU SOCKET ET VERIFICATION */
+		struct sockaddr_in adServ;
+		adServ.sin_family = AF_INET;
+		adServ.sin_addr.s_addr = INADDR_ANY;
+		adServ.sin_port = htons((short)atoi(argv[1]));
+		int verif = bind(dSE, (struct sockaddr*)&adServ, sizeof(adServ));
+		if (verif<0){
+			perror("Erreur au nommage du socket d'écoute ");
+			return -1;
 		}
 
-		/* DEMANDER LE PSEUDO AU CLIENT */
-		send(users[nb_client].dSC, "Entrez votre pseudo : ", sizeof("Entrez votre pseudo : "), 0);
+		/* MISE EN ECOUTE DES CONNEXIONS ENTRANTES ET VERIFICATION */
+		verif = listen(dSE,7);
+		if (verif<0){
+			perror("Erreur lors de la mise à l'écoute du socket ");
+			return -1;
+		}
+		struct sockaddr_in aC;
+		socklen_t lg = sizeof(struct sockaddr_in);
 
-		char pseudo_buffer[100];
-		int sizeof_pseudo;
-
-		/* RECEVOIR LA TAILLE DU PSEUDO DU CLIENT */
-		recv(users[nb_client].dSC, &sizeof_pseudo, sizeof(int), 0);
-		
-		/* RECEVOIR LE PSEUDO DU CLIENT */
-		recv(users[nb_client].dSC, &pseudo_buffer, sizeof_pseudo, 0);
-		strcpy(users[nb_client].pseudo, pseudo_buffer);
-		printf("Client %d connecté avec le pseudo : %s\n", nb_client+1, users[nb_client].pseudo);
-		
-		/* AJOUTER LE CLIENT AU GENERAL */
-		add_to_salon(&users[nb_client],"General");
-
-		/* AFFICHAGE DES CLIENTS CONNECTÉS  */
-		/*for (int i = 0; i < nb_client+1; ++i){
-			printf("%d : ", i);
-			printstruct(users[i]);
-		}*/
-
-		pthread_join(users[nb_client].thread,NULL);
-
-		/* CREATION DES THREADS */
-		if( pthread_create(&users[nb_client].thread, NULL, transmission, (void *) &users[nb_client])){
-			perror("Erreur à la création du thread de transmission entre le client 1 et le client 2 ");
-			return EXIT_FAILURE;
+		/* CREATTION DU SOCKET FICHIER ET VERIFICATION */
+		dSE_f = socket(PF_INET, SOCK_STREAM, 0);
+		if (dSE_f<0){
+			perror("Erreur à la création du socket d'écoute pour les fichiers");
+			return -1;
 		}
 
-		nb_client++;
+		/* NOMMAGE DU SOCKET FICHIER ET VERIFICATION */
+		struct sockaddr_in adServF;
+		adServF.sin_family = AF_INET;
+		adServF.sin_addr.s_addr = INADDR_ANY;
+		adServF.sin_port = htons((short)atoi(argv[1])+1);
+		verif = bind(dSE_f, (struct sockaddr*)&adServF, sizeof(adServF));
+		if (verif<0){
+			perror("Erreur au nommage du socket d'écoute pour les fichiers");
+			return -1;
+		}
 
-		//pthread_mutex_unlock(& mutex_users);
+		/* MISE EN ECOUTE DES CONNEXIONS ENTRANTES ET VERIFICATION SOCKET FICHIER */
+		verif = listen(dSE_f,7);
+		if (verif<0){
+			perror("Erreur lors de la mise à l'écoute du socket pour les fichiers");
+			return -1;
+		}
+		struct sockaddr_in aCF;
+
+		users = (CLIENT *) malloc(sizeof(CLIENT)*2);
+
+		init_salon();
+
+	 	printf("En attente des clients\n");
+		while(1){
+
+			int dSC;
+			int dSF;
+
+			dSC = accept(dSE, (struct sockaddr*) &aC, &lg);
+			dSF = accept(dSE_f, (struct sockaddr*)&aCF, &lg);
+
+			pthread_mutex_lock(& mutex_users);
+
+			if (nb_client > 0){
+				users = (CLIENT *) realloc(users, sizeof(CLIENT)*(nb_client+1));
+			} else {
+				users = (CLIENT *) malloc(sizeof(CLIENT)*2);
+			}
+
+			/* CONNEXION AVEC UN CLIENT */
+			users[nb_client].dSC = dSC;
+			users[nb_client].dSF = dSF;
+
+			if (users[nb_client].dSC<0 || users[nb_client].dSF<0){
+				perror("Erreur de connexion avec le client");
+				return -1;
+			}
+
+			/* CONNEXION AVEC UN CLIENT */
+			sem = sem_wait(&semaphore);
+			if(sem == -1){
+				perror("A problem occured (sem wait)");
+			}
+
+			/* DEMANDER LE PSEUDO AU CLIENT */
+			send(users[nb_client].dSC, "Entrez votre pseudo : ", sizeof("Entrez votre pseudo : "), 0);
+
+			char pseudo_buffer[100];
+			int sizeof_pseudo;
+
+			/* RECEVOIR LA TAILLE DU PSEUDO DU CLIENT */
+			recv(users[nb_client].dSC, &sizeof_pseudo, sizeof(int), 0);
+			
+			/* RECEVOIR LE PSEUDO DU CLIENT */
+			recv(users[nb_client].dSC, &pseudo_buffer, sizeof_pseudo, 0);
+			strcpy(users[nb_client].pseudo, pseudo_buffer);
+			printf("Client %d connecté avec le pseudo : %s\n", nb_client+1, users[nb_client].pseudo);
+			
+			/* AJOUTER LE CLIENT AU GENERAL */
+			add_to_salon(&users[nb_client],"General");
+
+			pthread_join(users[nb_client].thread,NULL);
+
+			/* CREATION DES THREADS */
+			if( pthread_create(&users[nb_client].thread, NULL, transmission, (void *) &users[nb_client])){
+				perror("Erreur à la création du thread de transmission entre le client 1 et le client 2 ");
+				return EXIT_FAILURE;
+			}
+
+			nb_client++;
+
+			pthread_mutex_unlock(& mutex_users);
+		}
+		close(dSE);
+		close(dSE_f);
+		printf("Fin du programme\n");
+		free(users);
 	}
-	close(dSE);
-	close(dSE_f);
-	printf("Fin du programme\n");
-	free(users);
 	return 0;
 }
